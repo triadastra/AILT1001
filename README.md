@@ -26,7 +26,8 @@ The editable source is **`dist/`**; despite its name, it is not generated. Do no
 
 | What you want to change | File |
 | --- | --- |
-| Homepage wording, sections and buttons | `dist/index.html` |
+| Front page: the 26 citations, their animated summaries and source links | `dist/index.html`, `dist/citations.css`, `dist/citations.js` |
+| Interactive poster page (activities and AR) | `dist/poster.html` |
 | Colours, spacing, typography, mobile layout | `dist/experience.css` |
 | Model explanations, workflow captions, scenarios and quiz answers | `dist/experience.js` |
 | Visible reference list and image credits | `dist/references.html` |
