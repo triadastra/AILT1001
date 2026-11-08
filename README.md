@@ -33,6 +33,7 @@ The editable source is **`dist/`**; despite its name, it is not generated. Do no
 | Reference metadata / caption archives | `dist/references.json`, `dist/assets/*captions.json` |
 | Images and demonstration clip | `dist/assets/` |
 | Camera controls and overlay | `dist/ar-camera.js`, `dist/ar.css` (glass AR look) |
+| AR “Play” walkthroughs of the four model paths (steps, captions, poster coordinates) | `dist/ar-explain.js` |
 | Poster tracking (feature points + marker fallback) | `dist/ar-features.js`, `dist/ar-worker.js`, `dist/planar-tracking.js` |
 | AR feature reference (~2000 points from the print PDF) | `dist/assets/poster-features.bin`, rebuilt with `scripts/build-ar-features.mjs` |
 

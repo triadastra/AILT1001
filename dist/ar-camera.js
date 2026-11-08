@@ -20,15 +20,17 @@ more.addEventListener('click', () => setDrawer(drawer.hidden));
 stateChip.addEventListener('click', () => { dock.classList.toggle('quiet'); clearTimeout(quietTimer); });
 
 // ---------- overlay ----------
-function hideOverlay() { plane.hidden = true; pose = null; current = null; target = null; lastGood = 0; misses = 0; wasLocked = false; cancelAnimationFrame(raf); raf = 0; demoVideo.pause(); }
+function hideOverlay() { plane.hidden = true; pose = null; current = null; target = null; lastGood = 0; misses = 0; wasLocked = false; cancelAnimationFrame(raf); raf = 0; demoVideo.pause(); renderHooks.forEach(f => f()); }
 function viewport() {
   const sw = source.videoWidth || source.naturalWidth, sh = source.videoHeight || source.naturalHeight, box = stage.getBoundingClientRect();
   return PosterTracking.viewport(sw, sh, box.width, box.height, mode === 'camera');
 }
+const renderHooks = [], stopHooks = [];
 function render() {
   if (!pose || !source) return;
   const v = viewport(), m = PosterTracking.cssMatrix(pose, v.width, v.height, v.left, v.top);
   plane.style.transform = 'matrix3d(' + m.join(',') + ')';
+  renderHooks.forEach(f => f());
 }
 const cornersOf = h => [[0, 0], [1, 0], [1, 1], [0, 1]].map(([x, y]) => PosterTracking.project(h, x, y));
 // Adaptive smoothing: small jitter is damped, real movement follows immediately.
@@ -63,7 +65,7 @@ function stop() {
   session++; clearTimeout(timer); if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; cam.srcObject = null;
   if (worker) worker.terminate(); worker = null; busy = false; source = null; mode = 'off'; cam.hidden = false; hideOverlay();
   enable.disabled = false; enable.hidden = false; switchCamera.hidden = true; guide.hidden = false; setState('off', 'Camera off');
-  stage.style.backgroundImage = 'none';
+  stage.style.backgroundImage = 'none'; stopHooks.forEach(f => f());
 }
 function close() { stop(); sheet.hidden = true; setDrawer(false); dialog.close(); if (document.fullscreenElement === dialog) document.exitFullscreen?.().catch(() => {}); focusReturn?.focus(); }
 function open(button) { focusReturn = button; sheet.hidden = true; setDrawer(false); hint('Point your camera at the poster. Any part of it works.', { stay: true }); dialog.showModal(); }
@@ -154,6 +156,11 @@ document.querySelectorAll('[data-ar-section]').forEach(b => b.addEventListener('
 }));
 $('close-ar-sheet').addEventListener('click', () => sheet.hidden = true);
 
+// Small API for the model-path explanations (ar-explain.js).
+window.PosterAR = {
+  onRender: f => renderHooks.push(f), onStop: f => stopHooks.push(f), stop,
+  toScreen(x, y) { if (!pose || !source || plane.hidden) return null; const v = viewport(), p = PosterTracking.project(pose, x / PosterTracking.width, y / PosterTracking.height); return { x: v.left + p.x * v.width, y: v.top + p.y * v.height }; }
+};
 window.addEventListener('resize', render); cam.addEventListener('resize', () => hideOverlay()); window.addEventListener('pagehide', stop);
 document.addEventListener('visibilitychange', () => { if (document.hidden && (mode !== 'off' || enable.disabled)) { stop(); hint('Camera paused. Start it again when you return.', { stay: true }); } });
 // Never leave an old pose apparently locked if frame processing stalls.

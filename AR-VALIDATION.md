@@ -70,3 +70,10 @@ Nginx now sends Cache-Control: no-cache so clients revalidate updated resources.
 - **Browser check:** Chromium with a fake camera video of the moving/tilting poster locked in ~0.26 s and stayed locked on all 52 status updates over 5 s (~10 updates/s). Direct Node timing on this machine: about 55–150 ms acquisition and 40–80 ms tracked frames at ≤800 px processing. A phone may be slower; this is not a phone measurement.
 - **Interface:** the camera view is a clear glass layout. A single minimised bar holds a status chip (state dot + point count), Start, Flip, ⋯ (Preview / Explore without camera) and Close. Hints fade after a few seconds; tapping the status chip shows them again. Poster hotspots are frosted-glass buttons registered in perspective. One missed frame keeps the last pose to avoid flicker; two hide it. Poses are smoothed adaptively. Matched points flash briefly when the poster first locks.
 - **Still outstanding:** a live test on a phone with the printed A0 poster.
+
+## Model-path “Play” walkthroughs — 8 November 2026
+
+- Each printed model column (Text, Image, Video, Audio) has a glass **▶ Play** button. Playing dims everything except that column. The dimming is a screen-space mask whose hole is the column projected through the live pose, so it follows the poster in perspective.
+- Animations are drawn in poster units on the registered plane. They show highlights, moving pulses along the printed arrows, noise that dissolves into the printed image/frames, softmax bars, attention arcs, code streams and a waveform. Each step is labelled **Preprocess → Propagate → Result**, with a caption card (previous / pause / next / stop). In landscape the card becomes a side panel.
+- Coordinates were measured on the print PDF rendered at 1682 × 2378. Zoomed browser screenshots confirmed highlights land on the printed boxes in Preview, and the spotlight followed the tilted poster with the fake moving camera.
+- The Audio result plays a short, quiet plucked-guitar sound synthesised on the device. The caption labels it illustrative, not model output. Playback pauses while the poster is not tracked.

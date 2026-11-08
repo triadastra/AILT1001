@@ -87,3 +87,52 @@
 
 @media(max-height:500px){#ar-guide{height:72dvh;top:44%}.ar-toast{font-size:13px;padding:7px 12px}.ar-dock{gap:6px}#ar-sheet{max-height:70dvh;bottom:68px}}
 @media(prefers-reduced-motion:reduce){#scanner *{animation:none!important;transition:none!important}}
+
+/* ---------- Model-path explanations ---------- */
+/* Glass play pills beside each printed column title (poster units) */
+#scanner .ar-play{position:absolute;top:304px;height:84px;display:flex;align-items:center;gap:12px;padding:0 30px 0 14px;pointer-events:auto;border-radius:999px;border:3px solid rgba(255,255,255,.75);
+  background:rgba(18,22,26,.55);-webkit-backdrop-filter:blur(18px) saturate(170%);backdrop-filter:blur(18px) saturate(170%);color:#fff;font-size:38px;font-weight:700;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.5),0 8px 30px rgba(0,0,0,.3);cursor:pointer;transition:transform .2s ease,opacity .3s ease}
+#scanner .ar-play svg{width:56px;height:56px;padding:12px;border-radius:50%;background:#fff;fill:#172a27;stroke:none}
+#scanner .ar-play:active{transform:scale(.95)}
+.ar-play[data-ar-play=text]{left:222px}.ar-play[data-ar-play=image]{left:606px}.ar-play[data-ar-play=video]{left:966px}.ar-play[data-ar-play=audio]{left:1336px}
+.ar-play[aria-pressed=true]{opacity:0;pointer-events:none!important}
+.ar-explain{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+/* While explaining: other overlay pieces step back, the column stays lit */
+#poster-plane.explaining .ar-clip,#poster-plane.explaining .ar-impact,#poster-plane.explaining .ar-outline{opacity:0;pointer-events:none}
+#poster-plane.explaining .ar-play:not([aria-pressed=true]){opacity:.35}
+#poster-plane .ar-clip,#poster-plane .ar-impact,#poster-plane .ar-outline{transition:opacity .4s ease}
+#ar-dim{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity .45s ease}
+#ar-dim.on{opacity:1}
+#ar-dim path{fill:rgba(4,6,8,.74)}
+
+.ar-explain-card{width:min(460px,100%);padding:14px 16px 10px;border-radius:24px;background:var(--glass-read);-webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%);
+  border:1px solid var(--edge);box-shadow:inset 0 1px 0 var(--shine),0 10px 40px rgba(0,0,0,.3);animation:ar-rise-in .3s ease-out}
+.ar-explain-card[hidden]{display:none}
+@keyframes ar-rise-in{from{opacity:0;transform:translateY(12px)}}
+.ar-xp-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}
+.ar-xp-phase{padding:3px 10px;border-radius:999px;font-weight:700;color:#172a27;background:#fff}
+.ar-xp-phase[data-phase=preprocess]{background:#9cc8ff}.ar-xp-phase[data-phase=propagate]{background:#f2d27c}.ar-xp-phase[data-phase=result]{background:#7ff0b0}
+.ar-explain-card h3{margin:8px 0 4px;font-size:18px;line-height:1.25}
+.ar-explain-card p{margin:0;font-size:14px;line-height:1.45;color:var(--soft);min-height:3em}
+.ar-xp-dots{display:flex;gap:6px;margin:10px 0 6px}
+.ar-xp-dots i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.2);transition:background .3s}
+.ar-xp-dots i.done{background:rgba(255,255,255,.7)}.ar-xp-dots i.now{background:#fff;box-shadow:0 0 8px rgba(255,255,255,.8)}
+.ar-xp-ctrl{display:flex;align-items:center;gap:6px}
+.ar-xp-ctrl #ar-xp-close{margin-left:auto}
+.ar-xp-main{background:#fff!important;color:#172a27}
+.ar-xp-main svg path.i-play{fill:currentColor;stroke:none}
+.ar-xp-main .i-play,.ar-xp-main .i-replay{display:none}
+.ar-xp-main[data-state=play] .i-pause,.ar-xp-main[data-state=replay] .i-pause{display:none}
+.ar-xp-main[data-state=play] .i-play,.ar-xp-main[data-state=replay] .i-replay{display:inline}
+.ar-xp-link{padding:9px 14px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap}
+.ar-xp-link[hidden]{display:none}
+@media(max-height:500px){.ar-explain-card{padding:10px 12px 8px}.ar-explain-card p{min-height:0;font-size:13px}.ar-explain-card h3{font-size:16px;margin:4px 0 2px}}
+/* Full-size layers are not icons */
+#scanner svg#ar-dim{position:absolute;inset:0;width:100%;height:100%;fill:initial;stroke:none}
+#scanner svg.ar-explain{width:1682px;height:2378px;stroke:none;fill:none}
+#scanner svg.ar-explain circle{stroke:none}
+#scanner .ar-xp-main{color:#172a27}
+/* Landscape phones: explanation becomes a side panel so the lit column stays visible */
+@media(max-height:500px) and (min-aspect-ratio:4/3){#scanner .ar-explain-card{position:fixed;left:max(12px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top));width:min(300px,34vw);max-height:calc(100dvh - 24px);overflow:auto}
+  .ar-explain-card .ar-xp-ctrl .ar-icon{width:38px;height:38px}}
