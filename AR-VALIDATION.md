@@ -1,6 +1,6 @@
 # Poster AR companion
 
-The live entry URL is unchanged. The bibliography remains publicly accessible at `/references.html`, with numbered anchors preserved. The old section-QR scanner is removed from the entry page.
+The live entry URL now opens the citations page; the interactive poster and AR moved to `/poster.html`, one tap away via **Interactive poster & AR**. The bibliography remains publicly accessible at `/references.html`, and `/#ref-N` also works on the front page. The old section-QR scanner is removed.
 
 ## Tracking contract
 
@@ -22,8 +22,8 @@ Run fixtures with `uv run --with pillow --with numpy python tests/make-fixtures.
 
 ## Visitor flow
 
-1. Scan the one main QR on the poster.
-2. Choose **Enter poster AR**, then **Enable camera**.
+1. Scan the one main QR on the poster (opens the citations page).
+2. Tap **Interactive poster & AR**, then choose **Enter poster AR**, then **Enable camera**.
 3. Move back until the complete poster and its corner markers fit in view. Avoid glare and keep the paper flat.
 4. Tap a highlighted model, workflow or impact hotspot.
 5. **Preview** demonstrates the same detection and registration pipeline on the poster image, clearly labelled as a preview.
