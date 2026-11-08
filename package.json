@@ -8,7 +8,7 @@
     "start": "npm run dev",
     "build": "node scripts/build.mjs",
     "preview": "vite preview dist --outDir ../build --host 127.0.0.1 --port 5173 --strictPort",
-    "test": "node tests/interface.test.cjs",
+    "test": "node tests/citations.test.cjs && node tests/interface.test.cjs",
     "test:tracking": "python3 tests/make-fixtures.py && node tests/tracking.test.cjs",
     "deploy:prepare": "npm run build && node scripts/prepare-cloud-run.mjs",
     "deploy": "npm test && npm run deploy:prepare && bash scripts/deploy-cloud-run.sh"

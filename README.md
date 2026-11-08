@@ -26,7 +26,8 @@ The editable source is **`dist/`**; despite its name, it is not generated. Do no
 
 | What you want to change | File |
 | --- | --- |
-| Homepage wording, sections and buttons | `dist/index.html` |
+| Front page: the 26 citations, their animated summaries and source links | `dist/index.html`, `dist/citations.css`, `dist/citations.js` |
+| Interactive poster page (activities and AR) | `dist/poster.html` |
 | Colours, spacing, typography, mobile layout | `dist/experience.css` |
 | Model explanations, workflow captions, scenarios and quiz answers | `dist/experience.js` |
 | Visible reference list and image credits | `dist/references.html` |
@@ -59,7 +60,7 @@ git push origin main
 
 ## AR checks
 
-Use **Enter poster AR → ⋯ → Preview without camera** for a camera-free demonstration. For the phone camera, open the HTTPS website, tap **Start** and allow camera access. The tracker matches about 2000 natural feature points from the printed poster, so any clearly visible part of the poster can lock the overlay, even close up with the corners out of frame. The four corner markers remain a fallback.
+Use **Enter poster AR → ⋯ → Preview without camera** for a camera-free demonstration. For the phone camera, open the HTTPS website, tap **Interactive poster & AR → Enter poster AR → Start** and allow camera access. The tracker matches about 2000 natural feature points from the printed poster, so any clearly visible part of the poster can lock the overlay, even close up with the corners out of frame. The four corner markers remain a fallback.
 
 If the printed poster changes, rebuild the feature reference from the new print PDF (needs Poppler's `pdftoppm`, e.g. `brew install poppler`):
 

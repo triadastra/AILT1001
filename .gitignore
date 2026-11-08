@@ -12,3 +12,6 @@ build/
 *credentials*.json
 *service-account*.json
 tests/tracking-report.json
+
+# Local design screenshots/videos (not part of the site)
+design-preview/

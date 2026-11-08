@@ -18,6 +18,10 @@ Direct assets for [3]: [input image](https://github.com/Comfy-Org/workflow_templ
 
 These visuals show separate published examples, not one film produced by the group. AI-generated film imagery is not documentary photography.
 
+## Website citations page
+
+The front page (`dist/index.html`) reuses only the poster images credited above. They were cropped from the poster preview into `dist/assets/cite/`: `comfy-prompt`, `armoured` and `ksampler` [3]; `frost` [11]; `davinci` [13]; `toysrus` [17]. Card [9] plays the Comfy-Org Wan 2.2 example clip [3]. Card [1] shows a strip of these same images. All other card animations are original CSS/SVG concept drawings. They are not figures from the sources. No strike, festival or deepfake imagery is reproduced. The summary lines are plain-English readings of each source and should be checked against the original.
+
 ## Original diagrams and decorative artwork
 
 The four model diagrams are original explanatory SVG drawings prepared with AI assistance, based on: Text [7,8]; image [2]; video [9]; audio [4]. They are not reproduced figures or measured model activations. The film strip, clapperboard and paper texture are decorative HTML/SVG artwork.

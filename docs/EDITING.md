@@ -2,9 +2,19 @@
 
 Run `npm run dev` and keep http://localhost:5173 open while editing. Vite refreshes the page when source files change.
 
+## Citations front page
+
+The front page, `dist/index.html`, shows only the numbered citations. Each card is one `<li class="cite" id="ref-N">` with:
+
+- an animated **stage**: a real image cropped from the poster (`dist/assets/cite/`), the Wan clip, or a small CSS concept animation (`c-*` classes in `dist/citations.css`);
+- three summary lines in `<ol class="beats">`, which play in turn (edit the text directly; keep three lines);
+- the citation, the "On the poster" note, the visual credit, and an **Open original source** link.
+
+Keep each card's citation text and link the same as `dist/references.json`; `npm test` checks this. Animations pause off-screen, stop for visitors who choose reduced motion, and have a **Pause animations** button that shows every summary line as plain text.
+
 ## Wording and activities
 
-- `dist/index.html` contains the hero, navigation, controls, scene inputs and the AR overlay shell.
+- `dist/poster.html` (formerly the homepage) contains the hero, navigation, controls, scene inputs and the AR overlay shell. It is linked from the top of the citations page.
 - `dist/experience.js` contains the `models`, `posterWorkflow`, `steps` and `cases` objects/arrays. These drive the model cards, six-step workflow and ethics activities. Change the text strings, preserving their keys and array structure.
 - `dist/ar-camera.js` also contains the AR detail-sheet text. When changing an explanation, check both normal browsing and the AR detail sheet.
 - `dist/assets/group-captions.json` and `workflow-captions.json` are caption records. The website does **not** fetch these automatically. Editing only those JSON files will not change the visible activity wording. Keep them consistent with the corresponding visible text where applicable.
