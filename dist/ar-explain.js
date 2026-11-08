@@ -110,12 +110,14 @@ function draw(o, local, now) {
 }
 
 // ---------- illustrative sound (soft plucked guitar notes, synthesised locally) ----------
-let audio = null;
+let audio = null; const voices = [];
 function pluck(freq, when, gain = .12) {
   if (!audio) return; const sr = audio.sampleRate, len = Math.floor(sr * 1.6), buf = audio.createBuffer(1, len, sr), d = buf.getChannelData(0), period = Math.round(sr / freq);
   for (let i = 0; i < period; i++) d[i] = Math.random() * 2 - 1; for (let i = period; i < len; i++) d[i] = (d[i - period] + d[i - period + 1]) * .497;
-  const src = audio.createBufferSource(), g = audio.createGain(); g.gain.value = gain; src.buffer = buf; src.connect(g).connect(audio.destination); src.start(when);
+  const src = audio.createBufferSource(), g = audio.createGain(); g.gain.value = gain; src.buffer = buf; src.connect(g).connect(audio.destination); src.start(when); voices.push(src); src.onended = () => { const i = voices.indexOf(src); if (i >= 0) voices.splice(i, 1); };
 }
+// Cancel any notes still scheduled (stop, pause, seek, switching column or closing AR).
+function silence() { while (voices.length) { try { voices.pop().stop(); } catch {} } }
 function playChord() { if (!audio) return; try { audio.resume?.(); } catch {} const t = audio.currentTime + .05; [196, 246.9, 293.7, 392, 293.7, 246.9].forEach((f, i) => pluck(f, t + i * .32)); pluck(98, t, .08); }
 
 // ---------- playback engine ----------
@@ -123,7 +125,7 @@ const card = document.getElementById('ar-explain'), phaseEl = card.querySelector
   dotsEl = card.querySelector('.ar-xp-dots'), toggle = document.getElementById('ar-xp-toggle'), linkEl = card.querySelector('.ar-xp-link');
 let current = null, objs = [], covers = [], starts = [], total = 0, t = 0, playing = false, last = 0, raf = 0, stepShown = -1, soundDone = false;
 function stopExplain() {
-  cancelAnimationFrame(raf); raf = 0; current = null; playing = false; layer.textContent = ''; objs = []; covers = []; plane.classList.remove('explaining'); stage.classList.remove('explaining');
+  silence(); cancelAnimationFrame(raf); raf = 0; current = null; playing = false; layer.textContent = ''; objs = []; covers = []; plane.classList.remove('explaining'); stage.classList.remove('explaining');
   card.hidden = true; dim.classList.remove('on'); document.querySelectorAll('.ar-play').forEach(b => b.setAttribute('aria-pressed', 'false'));
 }
 function start(key) {
@@ -136,13 +138,13 @@ function start(key) {
   document.querySelector(`.ar-play[data-ar-play="${key}"]`)?.setAttribute('aria-pressed', 'true');
   setPlaying(true); updateDim(); tick(performance.now());
 }
-function setPlaying(on) { playing = on; toggle.setAttribute('aria-label', on ? 'Pause' : 'Play'); toggle.dataset.state = on ? 'pause' : 'play'; last = performance.now(); if (on && !raf) raf = requestAnimationFrame(tick); }
-function seekStep(i) { if (!current) return; i = Math.max(0, Math.min(current.steps.length - 1, i)); t = starts[i] + 1; stepShown = -1; soundDone = false; if (!playing) setPlaying(true); }
+function setPlaying(on) { if (!on) silence(); playing = on; toggle.setAttribute('aria-label', on ? 'Pause' : 'Play'); toggle.dataset.state = on ? 'pause' : 'play'; last = performance.now(); if (on && !raf) raf = requestAnimationFrame(tick); }
+function seekStep(i) { if (!current) return; silence(); i = Math.max(0, Math.min(current.steps.length - 1, i)); t = starts[i] + 1; stepShown = -1; soundDone = false; if (!playing) setPlaying(true); }
 // clear = [step index, start fraction, end fraction] of the step during which noise dissolves
 function clearAt(clear) { if (!clear) return 0; const [n, cs, ce] = clear, st = starts[n], dur = current.steps[n].dur; return clamp((t - (st + cs * dur)) / Math.max(1, (ce - cs) * dur)); }
 function stepIndex() { let i = 0; while (i + 1 < starts.length && t >= starts[i + 1]) i++; return i; }
 function tick(now) {
-  raf = 0; if (!current) return;
+  cancelAnimationFrame(raf); raf = 0; if (!current) return;
   if (playing && !plane.hidden) t += Math.min(80, now - last); last = now;
   const ended = t >= total; if (ended) { t = total; if (playing) { playing = false; toggle.dataset.state = 'replay'; toggle.setAttribute('aria-label', 'Replay'); linkEl.hidden = false; linkEl.href = current.link; } }
   const si = stepIndex(), step = current.steps[si];
