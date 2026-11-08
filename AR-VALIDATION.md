@@ -24,8 +24,8 @@ Run fixtures with `uv run --with pillow --with numpy python tests/make-fixtures.
 
 1. Scan the one main QR on the poster (opens the citations page).
 2. Tap **Interactive poster & AR**, then choose **Enter poster AR**, then **Enable camera**.
-3. Move back until the complete poster and its corner markers fit in view. Avoid glare and keep the paper flat.
-4. Tap a highlighted model, workflow or impact hotspot.
+3. Point the camera at the poster—the whole sheet or any clearly visible part of it. Avoid strong glare and keep the paper flat.
+4. Tap a glass hotspot, or **▶ Play** on a model column for a step-by-step walkthrough.
 5. **Preview** demonstrates the same detection and registration pipeline on the poster image, clearly labelled as a preview.
 
 ## Verification limits
@@ -61,3 +61,19 @@ A low-contrast adaptive-threshold fallback also recovers a softened border after
 The six synthetic fixtures still pass. A dense poster with all four marker codes removed does not lock. Blank frames, fewer than three codes, invalid marker geometry and errors above three bits are rejected. Optional real-image regression inputs remain under /tmp, outside the repository and deployment; the user's room/screenshot is not published.
 
 Nginx now sends Cache-Control: no-cache so clients revalidate updated resources.
+
+## Natural-feature tracking and glass interface — 8 November 2026
+
+- **Primary tracker:** 2000 natural feature points extracted from the final print PDF (`Synthesising-Hollywood-52-PG02-A0.pdf`) at six scales (poster heights 960→228 px). Each point has a FAST-9 corner and an oriented 256-bit binary descriptor (`dist/ar-features.js`). Camera frames are matched with a ratio test, then a RANSAC homography is fitted and refined on inliers. At least 20 inliers and a plausible convex poster shape are required.
+- **Tracking loop:** once locked, the previous pose guides matching to nearby points only, and the processing resolution adapts so the poster appears at a reference scale (close-ups are shrunk, distant posters keep resolution). The four ArUco markers are now a fallback; a marker lock seeds feature tracking.
+- **Synthetic results:** these use generated views of the print artwork, so they are not physical-camera proof. Of the 10 views, every one locks on features, with 28–177 inliers on first acquisition and 74–323 on the next frame. Maximum on-screen error is 0.8–7.8 px at 1200–2000 px frame size (≤0.4%). The views include a close-up with **no corner markers visible**, a steep side angle, 30° rotation in dim/noisy light, and a small distant poster. The marker-free poster now locks by design. An unrelated film still and a noise texture never lock.
+- **Browser check:** Chromium with a fake camera video of the moving/tilting poster locked in ~0.26 s and stayed locked on all 52 status updates over 5 s (~10 updates/s). Direct Node timing on this machine: about 55–150 ms acquisition and 40–80 ms tracked frames at ≤800 px processing. A phone may be slower; this is not a phone measurement.
+- **Interface:** the camera view is a clear glass layout. A single minimised bar holds a status chip (state dot + point count), Start, Flip, ⋯ (Preview / Explore without camera) and Close. Hints fade after a few seconds; tapping the status chip shows them again. Poster hotspots are frosted-glass buttons registered in perspective. One missed frame keeps the last pose to avoid flicker; two hide it. Poses are smoothed adaptively. Matched points flash briefly when the poster first locks.
+- **Still outstanding:** a live test on a phone with the printed A0 poster.
+
+## Model-path “Play” walkthroughs — 8 November 2026
+
+- Each printed model column (Text, Image, Video, Audio) has a glass **▶ Play** button. Playing dims everything except that column. The dimming is a screen-space mask whose hole is the column projected through the live pose, so it follows the poster in perspective.
+- Animations are drawn in poster units on the registered plane. They show highlights, moving pulses along the printed arrows, noise that dissolves into the printed image/frames, softmax bars, attention arcs, code streams and a waveform. Each step is labelled **Preprocess → Propagate → Result**, with a caption card (previous / pause / next / stop). In landscape the card becomes a side panel.
+- Coordinates were measured on the print PDF rendered at 1682 × 2378. Zoomed browser screenshots confirmed highlights land on the printed boxes in Preview, and the spotlight followed the tilted poster with the fake moving camera.
+- The Audio result plays a short, quiet plucked-guitar sound synthesised on the device. The caption labels it illustrative, not model output. Playback pauses while the poster is not tracked.

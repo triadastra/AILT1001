@@ -1,4 +1,9 @@
-importScripts('vendor/cv.js','vendor/aruco.js','planar-tracking.js');
+importScripts('vendor/cv.js','vendor/aruco.js','planar-tracking.js','ar-features.js');
+// Primary tracking: ~2000 natural feature points from the printed poster (assets/poster-features.bin).
+// The four corner markers remain a fallback and can seed feature tracking.
+let features=null,featuresSettled=!self.fetch;
+const featuresReady=(self.fetch?fetch('assets/poster-features.bin').then(r=>{if(!r.ok)throw new Error('features '+r.status);return r.arrayBuffer();}):Promise.reject(new Error('fetch unavailable'))).then(b=>{features=PosterFeatures.createTracker(PosterFeatures.deserialize(b));}).catch(()=>{features=null;}).then(()=>{featuresSettled=true;});
+self.posterFeaturesReady=featuresReady;
 // The dictionary has minimum distance 12; correct up to 3 bits, then verify page geometry.
 // This library uses an exclusive error threshold.
 const detector=new AR.Detector({dictionaryName:'ARUCO_MIP_36h12',maxHammingDistance:4});
@@ -16,4 +21,9 @@ function detect(image){const tracked=trackedRegions(image);if(tracked.length===4
 const provisional=PosterTracking.fit(found,image.width,image.height);
 if(provisional.locked){previous={h:provisional.h,width:image.width,height:image.height};const refined=trackedRegions(image);const merged=new Map(found.map(m=>[m.id,m]));for(const m of refined)merged.set(m.id,m);const candidate=[...merged.values()];if(PosterTracking.fit(candidate,image.width,image.height).locked)return candidate;}
 return found;}
-self.onmessage=e=>{const {buffer,width,height,session}=e.data;try{const image={data:new Uint8ClampedArray(buffer),width,height};const markers=detect(image);const fitted=PosterTracking.fit(markers,width,height);previous=fitted.locked?{h:fitted.h,width,height}:null;self.postMessage({session,...fitted,width,height});}catch(err){self.postMessage({session,locked:false,count:0,reason:'error',message:String(err)});}};
+function markerPose(image){const markers=detect(image);const fitted=PosterTracking.fit(markers,image.width,image.height);previous=fitted.locked?{h:fitted.h,width:image.width,height:image.height}:null;return {...fitted,method:'markers'};}
+self.onmessage=e=>{if(!featuresSettled){featuresReady.then(()=>self.onmessage(e));return;}handle(e);};
+function handle(e){const {buffer,width,height,session}=e.data;try{const image={data:new Uint8ClampedArray(buffer),width,height};let result=null;
+if(features){result=features.locate(PosterFeatures.toGray(image.data,width,height),width,height);if(result.locked)previous={h:result.h,width,height};}
+if(!result||!result.locked){const fitted=markerPose(image);if(fitted.locked){features?.seed(fitted.h);result=fitted;}else result={...fitted,method:features?'features':'markers',features:result?.features||0,markers:fitted.count,count:0};}
+self.postMessage({session,...result,width,height});}catch(err){self.postMessage({session,locked:false,count:0,reason:'error',message:String(err)});}}

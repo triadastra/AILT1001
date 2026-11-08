@@ -29,9 +29,9 @@ To replace the demonstration clip, change `dist/assets/wan-example.mp4`, its `wa
 
 ## Layout and AR
 
-Edit `dist/experience.css` for visual changes. Check narrow portrait and landscape screens, keyboard navigation, and the camera close button. Font declarations are in `dist/fonts.css`.
+Edit `dist/experience.css` for visual changes; the AR camera view has its own glass styles in `dist/ar.css`. The AR **Play** walkthroughs for the Text, Image, Video and Audio columns live in `dist/ar-explain.js`: each step has a phase, title, caption text and the poster-unit rectangles/paths it animates (measured on the 1682 × 2378 print layout). Edit the `title`/`text` strings to change captions; moving printed boxes requires updating their coordinates. Check narrow portrait and landscape screens, keyboard navigation, and the camera close button. Font declarations are in `dist/fonts.css`.
 
-The marker layout corresponds to the existing printed A0 poster. `dist/planar-tracking.js` is the runtime geometry; `dist/assets/ar-tracking-layout.json` documents the layout. Moving the printed markers requires coordinated detector/geometry changes and fresh tracking tests. Changing only the JSON record does not alter the runtime tracker. Do not replace the marker pattern with decorative corner brackets.
+AR tracking primarily uses ~2000 natural feature points extracted from the final print PDF (`dist/assets/poster-features.bin`). If the printed artwork changes, run `node scripts/build-ar-features.mjs poster.pdf` and `npm run test:tracking`. The marker layout (fallback) corresponds to the existing printed A0 poster. `dist/planar-tracking.js` is the runtime geometry; `dist/assets/ar-tracking-layout.json` documents the layout. Moving the printed markers requires coordinated detector/geometry changes and fresh tracking tests. Changing only the JSON record does not alter the runtime tracker. Do not replace the marker pattern with decorative corner brackets.
 
 Camera frames are processed on the device. Preserve that behaviour when adding features. HTTPS is needed for normal phone-camera use; localhost works for local testing. A phone opening your Mac's ordinary LAN HTTP address will not get the same camera permissions.
 

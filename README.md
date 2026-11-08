@@ -33,8 +33,10 @@ The editable source is **`dist/`**; despite its name, it is not generated. Do no
 | Visible reference list and image credits | `dist/references.html` |
 | Reference metadata / caption archives | `dist/references.json`, `dist/assets/*captions.json` |
 | Images and demonstration clip | `dist/assets/` |
-| Camera controls and overlay | `dist/ar-camera.js` |
-| Marker detection and poster geometry | `dist/ar-worker.js`, `dist/planar-tracking.js` |
+| Camera controls and overlay | `dist/ar-camera.js`, `dist/ar.css` (glass AR look) |
+| AR “Play” walkthroughs of the four model paths (steps, captions, poster coordinates) | `dist/ar-explain.js` |
+| Poster tracking (feature points + marker fallback) | `dist/ar-features.js`, `dist/ar-worker.js`, `dist/planar-tracking.js` |
+| AR feature reference (~2000 points from the print PDF) | `dist/assets/poster-features.bin`, rebuilt with `scripts/build-ar-features.mjs` |
 
 See **[Editing guide](docs/EDITING.md)** for the important distinctions between live text and reference data.
 
@@ -58,7 +60,13 @@ git push origin main
 
 ## AR checks
 
-Use **Enter poster AR → Preview** for a camera-free demonstration. For the phone camera, open the HTTPS website and allow camera access. Keep the printed poster's corner markers visible. At least three correctly identified corners are required to lock the overlay.
+Use **Enter poster AR → ⋯ → Preview without camera** for a camera-free demonstration. For the phone camera, open the HTTPS website, tap **Interactive poster & AR → Enter poster AR → Start** and allow camera access. The tracker matches about 2000 natural feature points from the printed poster, so any clearly visible part of the poster can lock the overlay, even close up with the corners out of frame. The four corner markers remain a fallback.
+
+If the printed poster changes, rebuild the feature reference from the new print PDF (needs Poppler's `pdftoppm`, e.g. `brew install poppler`):
+
+```sh
+node scripts/build-ar-features.mjs path/to/poster.pdf
+```
 
 ```sh
 python3 -m venv .venv
