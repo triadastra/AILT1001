@@ -1,0 +1,14 @@
+node_modules/
+build/
+.deploy/
+.venv/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*.json
+*service-account*.json
+tests/tracking-report.json

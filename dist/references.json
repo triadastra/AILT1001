@@ -1,0 +1,210 @@
+[
+  {
+    "number": 1,
+    "url": "https://arxiv.org/abs/2504.08296",
+    "author": "Zhang, R., Yu, B., Min, J., Xin, Y., Wei, Z., Shi, J. N., Huang, M., Kong, X., Xin, N. L., Jiang, S., Bahuguna, P., Chan, M., Hora, K., Yang, L., Liang, Y., Bian, R., Liu, Y., Valencia, I. C., Tredinick, P. M., … Rao, A. (2025).",
+    "title": "Generative AI for film creation: A survey of recent advances.",
+    "publication": "arXiv. https://doi.org/10.48550/arXiv.2504.08296",
+    "purpose": "Overview of AI film production, visual styles and practical limitations."
+  },
+  {
+    "number": 2,
+    "url": "https://openaccess.thecvf.com/content/CVPR2022/html/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.html",
+    "author": "Rombach, R., Blattmann, A., Lorenz, D., Esser, P., & Ommer, B. (2022).",
+    "title": "High-resolution image synthesis with latent diffusion models.",
+    "publication": "Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, 10684–10695.",
+    "purpose": "Image-model diagram: latent diffusion, conditioning and decoding."
+  },
+  {
+    "number": 3,
+    "url": "https://docs.comfy.org/tutorials/video/wan/wan2_2",
+    "author": "ComfyUI. (n.d.).",
+    "title": "Wan2.2 video generation: ComfyUI official native workflow example.",
+    "publication": "ComfyUI documentation. Retrieved November 7, 2026.",
+    "purpose": "Official workflow, node screenshots and separate image-to-video reference input."
+  },
+  {
+    "number": 4,
+    "url": "https://ai.honu.io/papers/musicgen/",
+    "author": "Copet, J., Kreuk, F., Gat, I., Remez, T., Kant, D., Synnaeve, G., Adi, Y., & Défossez, A. (2023).",
+    "title": "Simple and controllable music generation.",
+    "publication": "Advances in Neural Information Processing Systems, 36. Paper and audio demonstrations.",
+    "purpose": "MusicGen audio-token architecture and text- or melody-conditioned music examples."
+  },
+  {
+    "number": 5,
+    "url": "https://doi.org/10.1126/sciadv.adn5290",
+    "author": "Doshi, A. R., & Hauser, O. P. (2024).",
+    "title": "Generative AI enhances individual creativity but reduces the collective diversity of novel content.",
+    "publication": "Science Advances, 10(28), eadn5290. https://doi.org/10.1126/sciadv.adn5290",
+    "purpose": "Evidence about short-story ratings and similarity. The poster does not treat this as a measured result for films."
+  },
+  {
+    "number": 6,
+    "url": "https://doi.org/10.1145/3716135",
+    "author": "Halperin, B. A., & Rosner, D. K. (2025).",
+    "title": "“AI is soulless”: Hollywood film workers’ strike and emerging perceptions of generative cinema.",
+    "publication": "ACM Transactions on Computer-Human Interaction, 32(2), 1–27. https://doi.org/10.1145/3716135",
+    "purpose": "Film workers’ perspectives on AI, creative labour and control."
+  },
+  {
+    "number": 7,
+    "url": "https://arxiv.org/abs/1706.03762",
+    "author": "Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017).",
+    "title": "Attention is all you need.",
+    "publication": "Advances in Neural Information Processing Systems, 30.",
+    "purpose": "Transformer components: multi-head attention, residual paths and feed-forward layers."
+  },
+  {
+    "number": 8,
+    "url": "https://huggingface.co/docs/transformers/main/en/tasks/language_modeling",
+    "author": "Hugging Face. (n.d.).",
+    "title": "Causal language modeling.",
+    "publication": "Transformers documentation. Retrieved November 7, 2026.",
+    "purpose": "Autoregressive language modelling and next-token prediction."
+  },
+  {
+    "number": 9,
+    "url": "https://arxiv.org/abs/2503.20314",
+    "author": "Team Wan. (2025).",
+    "title": "Wan: Open and advanced large-scale video generative models.",
+    "publication": "arXiv. https://doi.org/10.48550/arXiv.2503.20314",
+    "purpose": "Video diffusion Transformer, spatiotemporal modelling and video VAE. See the source for the full contributor list."
+  },
+  {
+    "number": 10,
+    "url": "https://support.google.com/youtube/answer/1311392",
+    "author": "Google. (n.d.).",
+    "title": "YouTube channel monetization policies.",
+    "publication": "YouTube Help. Retrieved November 7, 2026.",
+    "purpose": "Platform revenue eligibility and restrictions on repetitive or mass-produced content."
+  },
+  {
+    "number": 11,
+    "url": "https://www.thefrost.ai/",
+    "author": "Waymark & Latent Cinema. (n.d.).",
+    "title": "The Frost.",
+    "publication": "Official film website. Retrieved November 7, 2026.",
+    "purpose": "Published AI-film example, synopsis, credits and online player."
+  },
+  {
+    "number": 12,
+    "url": "https://aif.runwayml.com/2024",
+    "author": "Runway. (2024).",
+    "title": "AI Film Festival 2024.",
+    "publication": "Festival programme: A Tree Once Grew Here, by John and Dara Semerad.",
+    "purpose": "Published film example for discussion of visual styles."
+  },
+  {
+    "number": 13,
+    "url": "https://www.blackmagicdesign.com/products/davinciresolve/edit",
+    "author": "Blackmagic Design. (n.d.).",
+    "title": "DaVinci Resolve: Edit.",
+    "publication": "Official product documentation. Retrieved November 7, 2026.",
+    "purpose": "Real editing-interface image used in the sound and editing stage."
+  },
+  {
+    "number": 14,
+    "url": "https://facebookresearch.github.io/audiocraft/model_cards/MUSICGEN_MODEL_CARD.html",
+    "author": "Meta FAIR. (n.d.).",
+    "title": "MusicGen model card.",
+    "publication": "AudioCraft documentation. Retrieved November 7, 2026.",
+    "purpose": "Model description and the CC BY-NC 4.0 licence for model weights."
+  },
+  {
+    "number": 15,
+    "url": "https://www.sagaftra.org/la-takes-picket-lines",
+    "author": "SAG-AFTRA. (2023).",
+    "title": "L.A. takes to the picket lines.",
+    "publication": "SAG-AFTRA.",
+    "purpose": "Primary industry source for the 2023 actors’ strike."
+  },
+  {
+    "number": 16,
+    "url": "https://support.google.com/youtube/answer/14328491",
+    "author": "Google. (n.d.).",
+    "title": "Disclosing use of altered or synthetic content.",
+    "publication": "YouTube Help. Retrieved November 7, 2026.",
+    "purpose": "Disclosure requirements for realistic altered or synthetic content."
+  },
+  {
+    "number": 17,
+    "url": "https://nativeforeign.co/work/toys-r-us-ai-film",
+    "author": "Native Foreign. (2024).",
+    "title": "Toys“R”Us AI film.",
+    "publication": "Official production case study.",
+    "purpose": "Real AI-assisted brand-film example for the commercial-production stage; no earnings are claimed."
+  },
+  {
+    "number": 18,
+    "url": "https://www.wgacontract2023.org/the-campaign/summary-of-the-2023-wga-mba",
+    "author": "Writers Guild of America. (2023).",
+    "title": "Summary of the 2023 WGA MBA.",
+    "publication": "2023 contract campaign.",
+    "purpose": "Primary industry source for the agreement’s AI provisions."
+  },
+  {
+    "number": 19,
+    "author": "eSafety Commissioner. (n.d.).",
+    "title": "Image-based abuse.",
+    "publication": "Australian Government. Retrieved November 7, 2026.",
+    "purpose": "Non-consensual intimate images, including AI deepfakes, and harm to the people depicted.",
+    "url": "https://www.esafety.gov.au/key-topics/image-based-abuse"
+  },
+  {
+    "number": 20,
+    "author": "U.S. Copyright Office. (2024).",
+    "title": "Copyright and artificial intelligence, Part 1: Digital replicas.",
+    "publication": "U.S. Copyright Office.",
+    "purpose": "Risks involving unauthorised likenesses; distinct from low variety and not a claim that all similar outputs infringe rights.",
+    "url": "https://www.copyright.gov/ai/Copyright-and-Artificial-Intelligence-Part-1-Digital-Replicas-Report.pdf"
+  },
+  {
+    "number": 21,
+    "author": "Vaccari, C., & Chadwick, A. (2020).",
+    "title": "Deepfakes and disinformation: Exploring the impact of synthetic political video on deception, uncertainty, and trust in news.",
+    "publication": "Social Media + Society, 6(1). https://doi.org/10.1177/2056305120903408",
+    "purpose": "Experimental evidence about uncertainty and reduced trust in news after exposure to political deepfakes; not evidence that all AI films deceive viewers.",
+    "url": "https://doi.org/10.1177/2056305120903408"
+  },
+  {
+    "number": 22,
+    "author": "SAG-AFTRA. (2026, February 13).",
+    "title": "SAG-AFTRA statement on Seedance 2.0.",
+    "publication": "SAG-AFTRA.",
+    "purpose": "2026 criticism of unauthorised voices and likenesses; separate from the 2023 strikes.",
+    "url": "https://www.sagaftra.org/sag-aftra-statement-seedance-20"
+  },
+  {
+    "number": 23,
+    "author": "Financial Crimes Enforcement Network. (2024, November 13).",
+    "title": "FinCEN alert on fraud schemes involving deepfake media targeting financial institutions.",
+    "publication": "FIN-2024-Alert004. U.S. Department of the Treasury.",
+    "purpose": "Deepfake voices or videos used to impersonate family members and friends in family-emergency scams.",
+    "url": "https://www.fincen.gov/system/files/shared/FinCEN-Alert-DeepFakes-Alert508FINAL.pdf"
+  },
+  {
+    "number": 24,
+    "author": "Apple. (n.d.).",
+    "title": "Final Cut Pro.",
+    "publication": "Apple. Retrieved November 7, 2026.",
+    "purpose": "Official video-editing product information.",
+    "url": "https://www.apple.com/final-cut-pro/"
+  },
+  {
+    "number": 25,
+    "author": "Apple. (n.d.).",
+    "title": "Logic Pro.",
+    "publication": "Apple. Retrieved November 7, 2026.",
+    "purpose": "Official audio production and editing product information.",
+    "url": "https://www.apple.com/logic-pro/"
+  },
+  {
+    "number": 26,
+    "url": "https://workspaceupdates.googleblog.com/2026/03/new-ways-to-customize-and-interact-with-your-content-in-NotebookLM.html",
+    "author": "Google Workspace. (2026, March).",
+    "title": "New ways to customize and interact with your content in NotebookLM.",
+    "publication": "Google Workspace Updates.",
+    "purpose": "AI-generated video overviews and slide decks for teaching and demonstrations."
+  }
+]

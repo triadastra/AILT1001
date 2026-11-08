@@ -1,0 +1,36 @@
+# Editing the site
+
+Run `npm run dev` and keep http://localhost:5173 open while editing. Vite refreshes the page when source files change.
+
+## Wording and activities
+
+- `dist/index.html` contains the hero, navigation, controls, scene inputs and the AR overlay shell.
+- `dist/experience.js` contains the `models`, `posterWorkflow`, `steps` and `cases` objects/arrays. These drive the model cards, six-step workflow and ethics activities. Change the text strings, preserving their keys and array structure.
+- `dist/ar-camera.js` also contains the AR detail-sheet text. When changing an explanation, check both normal browsing and the AR detail sheet.
+- `dist/assets/group-captions.json` and `workflow-captions.json` are caption records. The website does **not** fetch these automatically. Editing only those JSON files will not change the visible activity wording. Keep them consistent with the corresponding visible text where applicable.
+
+Preserve the group's own wording unless a change is intended. Keep technical claims and citations matched.
+
+## References and images
+
+The visible bibliography is `dist/references.html`; `dist/references.json` records its source metadata. Update both when adding or replacing a source, plus `REFERENCES-AND-IMAGE-CREDITS.md` for asset provenance. Citation links use `references.html#ref-N`, so keep each referenced `id="ref-N"` present. Do not renumber a source without updating every link and printed-poster citation that uses it.
+
+To replace the demonstration clip, change `dist/assets/wan-example.mp4`, its `wan-frame.jpg` preview and its source credit. This published demo must not be described as a film made by the group. Keep any new video small enough for mobile loading. The site currently uses the same clip in the hero and AR overlay.
+
+## Layout and AR
+
+Edit `dist/experience.css` for visual changes. Check narrow portrait and landscape screens, keyboard navigation, and the camera close button. Font declarations are in `dist/fonts.css`.
+
+The marker layout corresponds to the existing printed A0 poster. `dist/planar-tracking.js` is the runtime geometry; `dist/assets/ar-tracking-layout.json` documents the layout. Moving the printed markers requires coordinated detector/geometry changes and fresh tracking tests. Changing only the JSON record does not alter the runtime tracker. Do not replace the marker pattern with decorative corner brackets.
+
+Camera frames are processed on the device. Preserve that behaviour when adding features. HTTPS is needed for normal phone-camera use; localhost works for local testing. A phone opening your Mac's ordinary LAN HTTP address will not get the same camera permissions.
+
+## Before publishing
+
+1. Run `npm test` and `npm run build`.
+2. Preview the build with `npm run preview` after stopping the dev server.
+3. Check the reference links, clip playback, phone layout and AR Preview.
+4. If tracking changed, run `npm run test:tracking` and test a real phone against the printed poster.
+5. Commit and push; then use the deployment guide to publish.
+
+There is no web-based admin editor. You can edit files with GitHub's pencil button, but then pull those changes on your Mac before testing and deploying.

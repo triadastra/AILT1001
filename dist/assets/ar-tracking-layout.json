@@ -1,0 +1,51 @@
+{
+  "dictionary": "ARUCO_MIP_36h12",
+  "posterSize": [
+    1682,
+    2378
+  ],
+  "markerOuterSize": 80,
+  "markerBlackInset": 8,
+  "markers": [
+    {
+      "id": 0,
+      "corner": "top-left",
+      "outer": [
+        8,
+        8,
+        80,
+        80
+      ]
+    },
+    {
+      "id": 7,
+      "corner": "top-right",
+      "outer": [
+        1594,
+        8,
+        80,
+        80
+      ]
+    },
+    {
+      "id": 2,
+      "corner": "bottom-right",
+      "outer": [
+        1594,
+        2290,
+        80,
+        80
+      ]
+    },
+    {
+      "id": 3,
+      "corner": "bottom-left",
+      "outer": [
+        8,
+        2290,
+        80,
+        80
+      ]
+    }
+  ]
+}

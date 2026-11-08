@@ -1,0 +1,52 @@
+{
+  "authority": "User comments and original proposal; minimal factual corrections approved 2026-11-07",
+  "points": [
+    {
+      "title": "World building",
+      "caption": "For fantasy and sci-fi movies, AI could quickly generate backdrops and action instead of requiring some real sets and props. [1]"
+    },
+    {
+      "title": "Consistent style & props",
+      "caption": "It is hard to keep props and style consistent throughout a movie. With AI videos, referencing images can help, though results still need checking. [1,3]"
+    },
+    {
+      "title": "Low cost for redos",
+      "caption": "AI-generated shots can be cheaper and easier to regenerate than traditional reshoots, which may require rebuilding sets and recalling crews. [1]"
+    },
+    {
+      "title": "Teaching & demonstrations",
+      "caption": "Supports teaching and topic demonstrations (e.g., Google NotebookLM), which could produce teaching videos and slide decks. [26]"
+    },
+    {
+      "title": "Creative ideas",
+      "caption": "Lets people imagine themselves or their IPs in different situations, making prompts a strong source of creative ideas. [1]"
+    },
+    {
+      "title": "Low variety",
+      "caption": "The base model could produce very similar scenes or characters. Copying others’ work or using someone’s likeness without permission can raise rights concerns. [5,20]"
+    },
+    {
+      "title": "Deepfake abuse",
+      "caption": "Shorts could feature real people in undesirable or sexual settings, harming their reputations. Videos of loved ones may be used to threaten or scam family members. [19,23]"
+    },
+    {
+      "title": "Labour & consent",
+      "caption": "AI could affect traditional film workers’ jobs, wages and creative control. Reusing someone’s appearance or voice raises consent and credit concerns. [6,20]"
+    },
+    {
+      "title": "Reality or fiction?",
+      "caption": "As AI videos become more realistic, people may become confused about what is real and more vulnerable to fake news. [21]"
+    },
+    {
+      "title": "Revenue limits",
+      "caption": "YouTube may reject repetitively produced AI junk, while people making similar videos may also face monetisation restrictions. [10]"
+    }
+  ],
+  "necessaryCorrections": [
+    "Replaced unsupported tens-of-dollars versus millions comparison with lower reshoot costs.",
+    "Reference images help consistency; they do not guarantee it.",
+    "Similarity alone does not establish rights infringement.",
+    "Replaced unsupported judgement-degradation claim with misleading viewers about reality.",
+    "Distinguished 2023 strikes from the 2026 Seedance dispute."
+  ]
+}

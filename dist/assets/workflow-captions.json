@@ -1,0 +1,8 @@
+[
+  "In ComfyUI, you can use nodes with “connection points,” like in UE5, to pass the previous node’s content to the next. [3]",
+  "Generating an image to use as the first frame of the video could guide the video generation process (Wan 2.2). [3]",
+  "Samplers define how the model is used, accompanied on the right by the video output in ComfyUI. [3]",
+  "Finalized clips and audio are then stitched together using apps like DaVinci Resolve (film), Final Cut Pro (movie) and Logic Pro (audio). [13,24,25]",
+  "For commercial use, some companies distribute AI-generated videos without monetisation for the specific clip. This is due to either the video-generation platform’s policy or an ethical promise. [10,14,17]",
+  "“The Frost” (2023) is one of the first well-known examples of AI-generated film that matched human-level film production. It includes a video player, credits and AI disclosures. [11]"
+]

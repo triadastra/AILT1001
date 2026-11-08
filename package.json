@@ -1,0 +1,23 @@
+{
+  "name": "synthesising-hollywood",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive A0 poster companion for group 52-PG02",
+  "scripts": {
+    "dev": "vite dist --host 127.0.0.1 --port 5173 --strictPort",
+    "start": "npm run dev",
+    "build": "node scripts/build.mjs",
+    "preview": "vite preview dist --outDir ../build --host 127.0.0.1 --port 5173 --strictPort",
+    "test": "node tests/interface.test.cjs",
+    "test:tracking": "python3 tests/make-fixtures.py && node tests/tracking.test.cjs",
+    "deploy:prepare": "npm run build && node scripts/prepare-cloud-run.mjs",
+    "deploy": "npm test && npm run deploy:prepare && bash scripts/deploy-cloud-run.sh"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "devDependencies": {
+    "jsdom": "^27.0.1",
+    "vite": "^8.3.6"
+  }
+}
