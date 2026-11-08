@@ -77,3 +77,13 @@ Nginx now sends Cache-Control: no-cache so clients revalidate updated resources.
 - Animations are drawn in poster units on the registered plane. They show highlights, moving pulses along the printed arrows, noise that dissolves into the printed image/frames, softmax bars, attention arcs, code streams and a waveform. Each step is labelled **Preprocess → Propagate → Result**, with a caption card (previous / pause / next / stop). In landscape the card becomes a side panel.
 - Coordinates were measured on the print PDF rendered at 1682 × 2378. Zoomed browser screenshots confirmed highlights land on the printed boxes in Preview, and the spotlight followed the tilted poster with the fake moving camera.
 - The Audio result plays a short, quiet plucked-guitar sound synthesised on the device. The caption labels it illustrative, not model output. Playback pauses while the poster is not tracked.
+
+## Full-screen network walkthroughs — 8 November 2026
+
+- **▶ Play** now lifts the printed column into a full-screen glass view. The view animates out of the column's tracked screen position and shrinks back into it on close. The whole network is always visible; the active part is lit and finished parts stay readable.
+- Each network runs one concrete example, labelled on screen as *example input · values simplified for illustration*:
+  - **Text:** “A musician plays” → tokens and example IDs → 6-number embeddings + position → masked attention table (plays → musician .71) → layer counter 1–12 → softmax (guitar 41%) → appended output.
+  - **Image:** “Armoured figure in a forest” → noise that dissolves over 30 sampler steps into the Wan example frame → VAE decode to the full picture.
+  - **Video:** 4 noisy frames × 12 patches = 48 tokens → one patch attending in space and time → frames decoded from the real Wan clip.
+  - **Audio:** 4 codebook streams with a delay pattern → waveform drawn from the exact sound that plays (synthesised on the device, labelled illustrative).
+- Browser check: portrait and landscape screenshots at every step, the open and close transition with the fake moving camera, and no page errors.
