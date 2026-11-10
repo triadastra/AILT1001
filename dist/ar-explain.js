@@ -312,7 +312,7 @@ function focusRect(step) {
   for (const n of names) { const s = k.secs[n]; if (!s || s.box[0] > s.box[2]) continue; b[0] = Math.min(b[0], s.box[0]); b[1] = Math.min(b[1], s.box[1]); b[2] = Math.max(b[2], s.box[2]); b[3] = Math.max(b[3], s.box[3]); }
   return b[0] > b[2] ? cam.world : b;
 }
-function aim(rect) { [cam.tx, cam.ty, cam.tw, cam.th] = fit(rect); }
+function aim(rect) { cam.focus = rect; [cam.tx, cam.ty, cam.tw, cam.th] = fit(rect); }
 function setMode(m) { cam.mode = m; viewBtn.textContent = m === 'overview' ? 'Follow' : 'Overview'; viewBtn.setAttribute('aria-pressed', String(m === 'overview')); if (m === 'overview') aim(cam.world); else if (m === 'follow' && current) aim(focusRect(current.steps[stepIndex()])); }
 function applyCam(dt) { const a = dt == null ? 1 : 1 - Math.exp(-dt / 260); cam.x = lerp(cam.x, cam.tx, a); cam.y = lerp(cam.y, cam.ty, a); cam.w = lerp(cam.w, cam.tw, a); cam.h = lerp(cam.h, cam.th, a); svg.setAttribute('viewBox', `${cam.x.toFixed(1)} ${cam.y.toFixed(1)} ${cam.w.toFixed(1)} ${cam.h.toFixed(1)}`); }
 const pointers = new Map(); let pinch = null;
@@ -377,7 +377,7 @@ function tick(now) {
   if (step.sound && playing && !soundDone) { soundDone = true; playSound(); }
   paintSections(ended ? current.steps.length : si); scene.update(ended ? current.steps.length : si, p, now);
   for (const s of Object.values(k.secs)) for (const f of s.flows) f.dots.forEach((d, i) => { if (s.state !== 'act') { d.setAttribute('opacity', 0); return; } const ph = (now / 1300 + i / f.dots.length) % 1, [x, y] = pointAt(f.pts, ph * f.L); d.setAttribute('cx', x.toFixed(1)); d.setAttribute('cy', y.toFixed(1)); d.setAttribute('opacity', Math.min(1, ph * 5, (1 - ph) * 5).toFixed(2)); });
-  if (cam.mode !== 'free') applyCam(Math.min(80, Math.max(0, dt)));
+  if (cam.mode !== 'free') { if (cam.focus) [cam.tx, cam.ty, cam.tw, cam.th] = fit(cam.focus); applyCam(Math.min(80, Math.max(0, dt))); }
   raf = requestAnimationFrame(tick);
 }
 function updateDim() {
