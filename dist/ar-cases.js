@@ -1,157 +1,308 @@
 'use strict';
-/* Blue / Red mode: the same six-step workflow, run twice.
- * Blue = good use, Red = harmful use. Same tools, same scene, same steps; only the choices differ.
- * Drawn as two parallel 3D tracks (hand-rolled perspective projection into the 360 x 560 SVG used by ar-explain.js).
- * Hypothetical example built from the group's proposal; citations use the numbers in references.html. */
-window.PosterCases = ({ el, clamp, ease, lerp }) => {
+/* Blue / Red mode: the same workflow, used well or harmfully, as 3D nodes floating over the printed poster.
+ * The camera view is blurred; the nodes stay locked to the poster in 3D (the camera pose is recovered
+ * from the tracker's homography). Blue keeps the safety modules plugged in and releases one labelled,
+ * watermarked film. Red types a harmful prompt, feeds in a face, lets the safety modules drop out, and
+ * mass-produces copies that fly everywhere as blurred cards. Nothing explicit is drawn: the "censored"
+ * cards are a pixelated frame of the Wan example plus the synthetic face. The face is a synthetic face drawn in code, not a real person.
+ * three.js is loaded only when this mode starts (dist/vendor/three.module.min.js, MIT). */
+window.PosterCases = ({ clamp, ease, lerp }) => {
 const COLOR = { blue: '#6cb6ff', red: '#ff6b6b' };
 const STEPS = [
-  { n: '01', title: 'Write the story', tool: 'Text model',
-    blue: { tag: 'Own script', short: 'The team drafts with the text model, then a person rewrites and reviews every line.', text: 'Blue: the text model suggests ideas for “a musician plays guitar in an MTR station”. The team rewrites them and reviews every line before anything is generated. [1]' },
-    red: { tag: 'Fake “news”', short: 'Same model, but the prompt asks for a shocking “breaking news” script that should look real.', text: 'Red: same tool, same scene, but the prompt becomes “write it as breaking news so people think it really happened”. Nobody reviews it, because the goal is clicks, not a story. [21]' },
+  { title: '01 · Write the story',
+    blue: 'Blue: the prompt describes an original scene, “a musician plays guitar in an MTR station”. The team reviews it before anything is generated. [1]',
+    red: 'Red: same prompt box, same model, but the words change: a real classmate’s face, a fake “breaking news” framing and a dangerous stunt. [21]',
     tip: 'Same tool. The goal changed: telling a story vs. passing fiction off as real.' },
-  { n: '02', title: 'Create visual assets', tool: 'Image model',
-    blue: { tag: 'Original cast', short: 'An original musician (or an actor who agreed), with the team’s own reference images for a consistent look.', text: 'Blue: the image model draws an original musician, or uses an actor who agreed to it. Reference images the team owns help keep the look consistent, though results still need checking. [1,3]' },
-    red: { tag: 'Stolen selfie', short: 'A classmate’s Instagram selfie goes in without asking, so the musician has a real person’s face.', text: 'Red: someone feeds in a classmate’s Instagram selfie without asking. Now the “musician” is a digital replica of a real person who never agreed. [20]' },
-    tip: 'Whose face is it? Using a real person’s likeness needs their consent.' },
-  { n: '03', title: 'Generate the video', tool: 'Video model',
-    blue: { tag: 'World building', short: 'A subway set the team could never afford to build. Bad takes are simply regenerated, not reshot.', text: 'Blue: the video model builds a subway scene the team could never afford to film. A bad take is regenerated instead of recalling a crew for a reshoot. [1]' },
-    red: { tag: 'Fake stunt', short: 'The “real” classmate leaps between moving trains, which no human could do. Children may copy it.', text: 'Red: the same model makes the classmate leap between moving trains. It looks real, but no person could do it, and our proposal worries that children may try to copy stunts like this.' },
-    tip: 'Fiction is fine. Realistic danger that features a real person is not.' },
-  { n: '04', title: 'Add sound & edit', tool: 'Audio model + editor',
-    blue: { tag: 'Original music', short: 'Generated guitar music; a human editor lines up picture, sound and captions.', text: 'Blue: an audio model generates gentle guitar music, and a human editor lines up the picture, sound and captions in DaVinci Resolve. [4,13]' },
-    red: { tag: 'Cloned voice', short: 'The classmate’s voice is cloned, and an AI news-anchor persona reads the clip out as fact.', text: 'Red: the classmate’s voice is cloned, and an AI “news anchor”, like the AI news shorts on WeChat Channels, presents the clip as something that really happened. [20,21]' },
-    tip: 'Cloning a real voice and copying a news format turns an edit into deception.' },
-  { n: '05', title: 'Plan monetisation', tool: 'Platform rules',
-    blue: { tag: 'Disclose + credit', short: 'Marked as AI-altered, team and tools credited, platform rules followed.', text: 'Blue: the upload is marked as altered or synthetic, the team and tools are credited, and monetisation follows the platform’s rules. [10,16]' },
-    red: { tag: 'Mass-produce', short: 'The template is copied 100 times with small changes to farm views: repetitive AI junk.', text: 'Red: the same template is copied a hundred times with tiny changes to farm views. YouTube may refuse to monetise repetitive content like this, and the copies all look alike. [10,5]' },
+  { title: '02 · Create visual assets',
+    blue: 'Blue: the image node loads a synthetic face (or an actor who agreed). The consent check stays plugged in and passes. [1,3]',
+    red: 'Red: the face is a classmate’s selfie, taken without asking. The consent check is unplugged and drops out of the workflow. [20]',
+    tip: 'Whose face is it? A real person’s likeness needs their consent.' },
+  { title: '03 · Generate the video',
+    blue: 'Blue: the safety filter catches the dangerous stunt, so the sampler renders an original, fictional character in a scene the team could never afford to build. [1,3]',
+    red: 'Red: the safety filter drops out too. The sampler renders the stunt with the real face, shown blurred here. Our proposal worries children may copy stunts like this. [21]',
+    tip: 'Fiction is fine. Realistic danger featuring a real person is not.' },
+  { title: '04 · Add sound & edit',
+    blue: 'Blue: an audio model writes original guitar music, and a human editor lines up picture, sound and captions. [4,13]',
+    red: 'Red: the audio node clones the classmate’s voice, and an AI “news anchor” presents the clip as if it really happened. [20,21]',
+    tip: 'Cloning a real voice and faking a news format turns an edit into deception.' },
+  { title: '05 · Plan monetisation',
+    blue: 'Blue: the release node credits the team and tools and marks the upload as AI-altered, following platform rules. [10,16]',
+    red: 'Red: a batch node copies the template a hundred times with tiny changes to farm views. YouTube may refuse to monetise repetitive content like this. [10,5]',
     tip: 'One honest film vs. a content farm of near-identical clips.' },
-  { n: '06', title: 'Distribute online', tool: 'Release',
-    blue: { tag: 'Watermarked', short: 'Released with credits, an AI label and an invisible watermark. It could even be used to teach a class.', text: 'Blue: the film is released with credits, an AI label and an invisible watermark, like The Frost’s disclosures. Viewers know it is fiction, and it could even be used to teach a class. [11,26]' },
-    red: { tag: 'Unlabelled', short: 'No label, no watermark. It spreads through short-video feeds; viewers can’t tell what’s real.', text: 'Red: there is no label and no watermark. The clip spreads through short-video feeds, harms the classmate’s reputation, and leaves viewers unsure what is real. [19,21]' },
+  { title: '06 · Distribute online',
+    blue: 'Blue: the watermark module stamps an AI label and an invisible watermark, and one credited film is released, like The Frost’s disclosures. [11,26]',
+    red: 'Red: the watermark module drops out. Unlabelled copies fly out into every feed, harming the classmate and leaving viewers unsure what is real. [19,21]',
     tip: 'Labels and watermarks let people and platforms tell real from fake.' }
 ];
-
-// ---------- 3D: two parallel tracks of six stations ----------
-const SP = 1.5, X0 = -3.75, Z = { blue: -1.05, red: 1.05 }, F = 360, D = 6.2, PITCH = 0.72, CX = 180, CY = 205;
-const stationX = i => X0 + i * SP;
-const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-function wrap(s, max) { const out = []; let line = ''; for (const w of s.split(' ')) { if (line && (line + ' ' + w).length > max) { out.push(line); line = w; } else line = line ? line + ' ' + w : w; } if (line) out.push(line); return out; }
-function lines(textEl, rows, x, lh) { textEl.textContent = ''; rows.forEach((r, i) => { const t = el('tspan', { x, dy: i ? lh : 0 }, textEl); t.textContent = r; }); }
-
-const T = (x, y, s, o = {}) => { const t = el('text', { x, y, 'text-anchor': o.anchor || 'middle', 'font-size': o.size || 12, 'font-weight': o.weight || 500, fill: o.fill || '#fff' }, o.parent); t.textContent = s; return t; };
-const steps = STEPS.map(s => ({ title: `${s.n} · ${s.title}`, blue: s.blue.text, red: s.red.text, dur: 8200, show: ['cs'] }));
+const steps = STEPS.map(s => ({ title: s.title, blue: s.blue, red: s.red, tip: s.tip, dur: 8600 }));
 return { cases: {
-  name: 'Same workflow, two outcomes', input: 'A musician plays guitar in an MTR station', accent: COLOR.blue, modes: COLOR,
-  note: 'Hypothetical example built from our proposal · not a real case',
-  link: { href: 'references.html', label: 'Check the sources ↗' },
-  steps,
-  build(k, api) {
-    // one world section, drawn in a 360 x 560 layout scaled up to the 640-wide world used by ar-explain.js
-    const sec = k.sec('cs'); sec.box.splice(0, 4, 0, 0, 640, 560 * 640 / 360);
-    const root = el('g', { transform: `scale(${640 / 360})` }, sec.g), floor = el('g', {}, root), items = el('g', {}, root), flat = el('g', {}, root);
-    let cam = { x: stationX(0), z: Z.blue, yaw: -0.42 }, lastNow = 0, swap = api.mode() === 'red' ? 1 : 0;
-    // the chosen mode's track glides to the front; the other passes behind it
-    const zOf = m => (m === 'blue' ? Z.blue : Z.red) * (1 - 2 * ease(swap));
-    const P = (x, y, z) => { const rx = x - cam.x, rz = z - cam.z, c = Math.cos(cam.yaw), s = Math.sin(cam.yaw), x1 = rx * c - rz * s, z1 = rx * s + rz * c, cp = Math.cos(PITCH), sp = Math.sin(PITCH), y2 = y * cp + z1 * sp, d = Math.max(.4, -y * sp + z1 * cp + D); return { x: CX + F * x1 / d, y: CY - F * y2 / d, d }; };
-    const pts = arr => arr.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-    const depthItems = [];
-    const item = (cls) => { const g = el('g', { class: cls }, items); const it = { g, d: 0, id: depthItems.length }; depthItems.push(it); return it; };
-
-    // floor: two film-strip ribbons with sprocket holes, plus a rung at each step joining the twin stations
-    const tracks = {};
-    for (const m of ['blue', 'red']) {
-      const g = el('g', { class: 'cs-track' }, floor), ribbon = el('polygon', { class: 'cs-ribbon', fill: COLOR[m] }, g), holes = [];
-      for (let j = 0; j < 30; j++) holes.push([el('polygon', { class: 'cs-hole' }, g), el('polygon', { class: 'cs-hole' }, g)]);
-      const label = T(0, 0, m === 'blue' ? 'BLUE · good use' : 'RED · harmful use', { size: 10, weight: 800, fill: COLOR[m], parent: g });
-      tracks[m] = { g, ribbon, holes, label };
-    }
-    const rungs = STEPS.map(() => el('polyline', { class: 'cs-rung' }, floor));
-
-    // stations (upright panels) and the badge above each
-    const stations = {};
-    for (const m of ['blue', 'red']) stations[m] = STEPS.map((s, i) => {
-      const it = item('cs-st'); it.m = m; it.i = i;
-      it.face = el('polygon', { class: 'cs-face', stroke: COLOR[m] }, it.g);
-      it.num = T(0, 0, s.n, { weight: 800, fill: COLOR[m], parent: it.g });
-      it.tag = T(0, 0, s[m].tag, { weight: 700, parent: it.g });
-      it.badge = el('g', {}, it.g); it.bc = el('circle', { r: 7, fill: COLOR[m] }, it.badge); it.bt = T(0, 0, m === 'blue' ? '✓' : '!', { size: 10, weight: 900, fill: '#0b0f14', parent: it.badge });
-      return it;
-    });
-
-    // the clip moving through the workflow: a small cube
-    const cube = item('cs-cube'), cubeFaces = Array.from({ length: 6 }, () => el('polygon', {}, cube.g));
-    const CUBE_F = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [1, 2, 6, 5], [0, 3, 7, 4]], SHADE = [.95, .55, .8, .6, .7, .65];
-    // red: copies of the clip (mass production); blue: watermark ring
-    const copies = Array.from({ length: 10 }, (_, j) => { const it = item('cs-copy'); it.poly = el('polygon', { fill: COLOR.red }, it.g); it.j = j; return it; });
-    const ring = item('cs-ring'); const ringPath = el('polygon', { class: 'cs-ringp', stroke: COLOR.blue }, ring.g); const ringTxt = T(0, 0, 'AI label · watermark', { size: 10, weight: 700, fill: COLOR.blue, parent: ring.g });
-
-    // flat comparison panel (screen space, under the 3D view)
-    const head = T(180, 366, '', { size: 13, weight: 800, parent: flat });
-    const box = m => { const x = m === 'blue' ? 8 : 184, g = el('g', { class: 'cs-box' }, flat); el('rect', { x, y: 376, width: 168, height: 112, rx: 10, class: 'cs-boxr', stroke: COLOR[m] }, g);
-      T(x + 10, 393, m === 'blue' ? 'BLUE · GOOD USE' : 'RED · HARMFUL USE', { anchor: 'start', size: 9.5, weight: 800, fill: COLOR[m], parent: g });
-      const t = T(x + 10, 410, '', { anchor: 'start', size: 10.6, weight: 500, parent: g }); return { g, t, x }; };
-    const boxes = { blue: box('blue'), red: box('red') };
-    const tipG = el('g', { class: 'cs-tip' }, flat); el('rect', { x: 8, y: 496, width: 344, height: 58, rx: 10, class: 'cs-tipr' }, tipG);
-    const tipLab = T(18, 512, '⇄ WHAT CHANGED', { anchor: 'start', size: 9.5, weight: 800, parent: tipG }), tipTxt = T(18, 528, '', { anchor: 'start', size: 11, weight: 600, parent: tipG });
-    let shownKey = '', order = '';
-
-    return { update(si, p, now) {
-      const mode = api.mode(), idx = Math.min(si, STEPS.length - 1), ended = si >= STEPS.length;
-      const dt = lastNow ? Math.min(80, now - lastNow) : 1000; lastNow = now; const a = 1 - Math.exp(-dt / 320);
-      // camera follows the clip along the active track
-      const goalX = stationX(idx) + .35, goalZ = Z.blue * .25, goalYaw = (mode === 'blue' ? -0.42 : -0.5) + (reduce ? 0 : Math.sin(now / 3200) * .05);
-      cam = { x: lerp(cam.x, goalX, a), z: lerp(cam.z, goalZ, a), yaw: lerp(cam.yaw, goalYaw, a) };
-      swap = reduce ? (mode === 'red' ? 1 : 0) : clamp(swap + (mode === 'red' ? 1 : -1) * dt / 700);
-
-      for (const m of ['blue', 'red']) {
-        const z = zOf(m), T = tracks[m], on = m === mode;
-        T.g.setAttribute('opacity', on ? 1 : .38);
-        T.ribbon.setAttribute('points', pts([P(X0 - .9, 0, z - .34), P(X0 + 5 * SP + .9, 0, z - .34), P(X0 + 5 * SP + .9, 0, z + .34), P(X0 - .9, 0, z + .34)]));
-        T.holes.forEach(([h1, h2], j) => { const x = X0 - .8 + j * .3, sq = (zz) => pts([P(x, .001, zz - .04), P(x + .12, .001, zz - .04), P(x + .12, .001, zz + .04), P(x, .001, zz + .04)]); h1.setAttribute('points', sq(z - .26)); h2.setAttribute('points', sq(z + .26)); });
-        const lp = P(X0 - .9, 0, z - .62); T.label.setAttribute('x', lp.x.toFixed(1)); T.label.setAttribute('y', lp.y.toFixed(1)); T.label.setAttribute('text-anchor', 'start');
-        stations[m].forEach(st => {
-          const x = stationX(st.i), q = [P(x - .55, .06, z), P(x + .55, .06, z), P(x + .55, .98, z), P(x - .55, .98, z)], c = P(x, .52, z), act = st.i === idx && !ended;
-          st.d = c.d; st.face.setAttribute('points', pts(q));
-          st.g.setAttribute('class', 'cs-st' + (on ? ' on' : '') + (act ? ' act' : '') + (st.i < idx || ended ? ' done' : ''));
-          const s = F / c.d; st.num.setAttribute('x', c.x.toFixed(1)); st.num.setAttribute('y', (c.y - s * .14).toFixed(1)); st.num.setAttribute('font-size', (s * .2).toFixed(1));
-          st.tag.setAttribute('x', c.x.toFixed(1)); st.tag.setAttribute('y', (c.y + s * .12).toFixed(1)); st.tag.setAttribute('font-size', (s * .135).toFixed(1));
-          const bp = P(x, 1.18, z), show = st.i < idx || ended || (st.i === idx && p > .55);
-          st.badge.setAttribute('opacity', show ? 1 : 0); st.bc.setAttribute('cx', bp.x.toFixed(1)); st.bc.setAttribute('cy', bp.y.toFixed(1)); st.bc.setAttribute('r', (s * .085).toFixed(1));
-          st.bt.setAttribute('x', bp.x.toFixed(1)); st.bt.setAttribute('y', (bp.y + s * .04).toFixed(1)); st.bt.setAttribute('font-size', (s * .11).toFixed(1));
-        });
-      }
-      rungs.forEach((r, i) => { const x = stationX(i); const zb = zOf('blue'), zr = zOf('red'), sg = Math.sign(zr - zb) || 1; r.setAttribute('points', pts([P(x, .002, zb + .34 * sg), P(x, .002, zr - .34 * sg)])); r.setAttribute('class', 'cs-rung' + (i === idx && !ended ? ' act' : '')); });
-
-      // clip cube: travels from the previous station, then hovers and spins
-      const travel = ended ? 1 : ease(clamp(p / .35)), from = si === 0 ? stationX(0) - 1.2 : stationX(Math.max(0, idx - 1)), cxw = ended ? stationX(5) : lerp(from, stationX(idx), travel), cz = zOf(mode);
-      const cy = 1.45 + (reduce ? 0 : Math.sin(now / 420) * .05), r = .2, spin = reduce ? .6 : now / 900;
-      const V = [-1, 1].flatMap(y => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => { const cs = Math.cos(spin), sn = Math.sin(spin); return P(cxw + (u * cs - v * sn) * r, cy + y * r, cz + (u * sn + v * cs) * r); }));
-      const faceOrder = CUBE_F.map((f, j) => ({ f, j, d: f.reduce((s, v) => s + V[v].d, 0) / 4 })).sort((x, y) => y.d - x.d);
-      faceOrder.forEach(({ f, j }, n) => { const poly = cubeFaces[n]; poly.setAttribute('points', pts(f.map(v => V[v]))); poly.setAttribute('fill', COLOR[mode]); poly.setAttribute('fill-opacity', SHADE[j]); poly.setAttribute('stroke', '#fff'); poly.setAttribute('stroke-opacity', .5); });
-      cube.d = P(cxw, cy, cz).d - .01;
-
-      // red, step 5 onwards: the clip is copied over and over; at step 6 the copies scatter into the feed
-      const copyOn = mode === 'red' && (idx >= 4 || ended), spread = idx === 4 && !ended ? ease(clamp((p - .25) / .6)) : copyOn ? 1 : 0, fly = idx === 5 || ended ? (ended ? 1 : ease(clamp(p / .8))) : 0;
-      copies.forEach(c => { if (!copyOn || spread <= 0) { c.g.setAttribute('opacity', 0); c.d = 99; return; }
-        const ang = c.j / copies.length * Math.PI * 2 + (reduce ? 0 : now / 2600), rad = .45 + spread * .55 + fly * 1.2, x = cxw + Math.cos(ang) * rad, z = cz + Math.sin(ang) * rad * .7, y = cy - .2 + Math.sin(c.j * 1.7) * .25 + fly * (.4 + (c.j % 3) * .3), q = .11;
-        c.g.setAttribute('opacity', (spread * (1 - fly * .5)).toFixed(2)); c.poly.setAttribute('points', pts([P(x - q, y - q, z), P(x + q, y - q, z), P(x + q, y + q, z), P(x - q, y + q, z)])); c.d = P(x, y, z).d; });
-      // blue, step 6: a watermark ring locks around the clip
-      const ringOn = mode === 'blue' && (idx === 5 || ended), rp = ended ? 1 : idx === 5 ? ease(clamp((p - .2) / .5)) : 0;
-      if (ringOn && rp > 0) { const R = .3 + .2 * rp, rpts = Array.from({ length: 28 }, (_, j) => { const t = j / 28 * Math.PI * 2 * rp; return P(cxw + Math.cos(t) * R, cy, cz + Math.sin(t) * R); }); ringPath.setAttribute('points', pts(rpts)); const tp = P(cxw, cy + .48, cz); ringTxt.setAttribute('x', tp.x.toFixed(1)); ringTxt.setAttribute('y', tp.y.toFixed(1)); ring.g.setAttribute('opacity', 1); ring.d = cube.d - .02; } else { ring.g.setAttribute('opacity', 0); ring.d = 99; }
-
-      // painter's order: far first (only touch the DOM when the order changes)
-      depthItems.sort((x, y) => y.d - x.d); const key = depthItems.map(it => it.id).join();
-      if (key !== order) { order = key; depthItems.forEach(it => items.appendChild(it.g)); }
-
-      // comparison panel
-      const k2 = idx + mode + ended;
-      if (k2 !== shownKey) { shownKey = k2; const s = STEPS[idx];
-        head.textContent = ended ? 'Same tools. Different choices. Different film.' : `${s.n} · ${s.title} · ${s.tool}`;
-        for (const m of ['blue', 'red']) { lines(boxes[m].t, wrap(ended ? (m === 'blue' ? 'A credited, labelled, watermarked short film people can trust.' : 'A fake, unlabelled clip of a real person, copied into every feed.') : s[m].short, 29), boxes[m].x + 10, 14); boxes[m].g.setAttribute('class', 'cs-box' + (m === mode ? ' on' : '')); }
-        tipLab.setAttribute('fill', COLOR[mode]); lines(tipTxt, wrap(ended ? 'Every step had the same tool in both tracks. Switch Blue ⇄ Red on any step to compare.' : s.tip, 58), 18, 14);
-      }
-    } };
-  }
+  name: 'Same workflow, two outcomes', input: 'A musician plays guitar in an MTR station', accent: COLOR.blue, modes: COLOR, spatial: true,
+  link: { href: 'references.html', label: 'Check the sources ↗' }, steps,
+  build(_, api) { return createScene(api); }
 } };
+
+function createScene(api) {
+  const PW = 1682, PH = 2378, reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canvas = document.createElement('canvas'); canvas.id = 'ar-3d'; canvas.setAttribute('aria-hidden', 'true'); api.stage.appendChild(canvas);
+  let THREE = null, R = null, disposed = false, focal = 0, endAt = 0, lastNow = 0;
+  // Auto-framing: a digital zoom applied to the blurred camera image and the 3D scene together, so the
+  // workflow fills the space above the caption card and everything stays registered to the poster.
+  const zoom = { s: 1, tx: 0, ty: 0 }, video = document.getElementById('camera-video'), card = document.getElementById('ar-explain');
+  const savedBg = api.stage.style.backgroundImage, backdrop = document.createElement('div'); backdrop.id = 'ar-backdrop';
+  if (savedBg && savedBg !== 'none') { for (const k of ['backgroundImage', 'backgroundSize', 'backgroundPosition', 'backgroundRepeat']) backdrop.style[k] = api.stage.style[k]; api.stage.style.backgroundImage = 'none'; }
+  api.stage.insertBefore(backdrop, api.stage.firstChild);
+  try { import('./vendor/three.module.min.js').then(m => { if (disposed) return; THREE = m; try { R = setup(); } catch { api.dialog.dataset.no3d = ''; } }).catch(() => { api.dialog.dataset.no3d = ''; }); } catch { api.dialog.dataset.no3d = ''; }
+
+  // ---------- 2D drawing for node faces ----------
+  const FONT = '"DM Sans", system-ui, -apple-system, sans-serif';
+  function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  function wrapText(g, text, x, y, maxW, lh, colorOf) {
+    let line = [], yy = y; const words = text.split(' ');
+    const flush = () => { let xx = x; for (const w of line) { g.fillStyle = colorOf ? colorOf(w) : '#fff'; g.fillText(w + ' ', xx, yy); xx += g.measureText(w + ' ').width; } line = []; yy += lh; };
+    for (const w of words) { if (line.length && g.measureText([...line, w].join(' ')).width > maxW) flush(); line.push(w); } if (line.length) flush(); return yy;
+  }
+  // A synthetic face, drawn in code (not a photo of anyone).
+  const face = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext && c.getContext('2d'); if (!g || !g.createRadialGradient) return c;
+    let gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#3a4a66'); gr.addColorStop(1, '#1c2333'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = '#c99a7b'; g.fillRect(104, 170, 48, 50); g.fillStyle = '#2e3f5c'; g.beginPath(); g.ellipse(128, 262, 100, 56, 0, 0, Math.PI * 2); g.fill();
+    gr = g.createRadialGradient(112, 112, 10, 128, 128, 90); gr.addColorStop(0, '#f1c9a8'); gr.addColorStop(1, '#c8936f'); g.fillStyle = gr; g.beginPath(); g.ellipse(128, 124, 62, 78, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#2a1d17'; g.beginPath(); g.ellipse(128, 70, 70, 40, 0, Math.PI, 0); g.fill(); g.beginPath(); g.ellipse(128, 66, 66, 30, 0, 0, Math.PI * 2); g.fill();
+    for (const ex of [104, 152]) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(ex, 120, 13, 7, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#4b3527'; g.beginPath(); g.arc(ex, 120, 5.5, 0, Math.PI * 2); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(ex, 120, 2.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#3a2a20'; g.lineWidth = 4; g.beginPath(); g.moveTo(ex - 15, 103); g.quadraticCurveTo(ex, 96, ex + 15, 103); g.stroke(); }
+    g.strokeStyle = 'rgba(120,70,50,.6)'; g.lineWidth = 3; g.beginPath(); g.moveTo(128, 128); g.lineTo(122, 150); g.lineTo(132, 152); g.stroke();
+    g.fillStyle = '#b5605a'; g.beginPath(); g.ellipse(128, 170, 18, 6, 0, 0, Math.PI * 2); g.fill(); return c; })();
+  // A frame from the official Wan 2.2 example (the poster's armoured figure), plus a noise field for denoising.
+  const frame = new Image(); frame.src = 'assets/wan-frame.jpg'; let frameReady = false; (frame.decode ? frame.decode() : Promise.reject()).then(() => { frameReady = true; }).catch(() => {});
+  const noise = (() => { const c = document.createElement('canvas'); c.width = 96; c.height = 54; const g = c.getContext && c.getContext('2d'); if (!g || !g.createImageData) return c; const d = g.createImageData(96, 54); for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = v; d.data[i + 1] = v * .9 + Math.random() * 25; d.data[i + 2] = v; d.data[i + 3] = 255; } g.putImageData(d, 0, 0); return c; })();
+  const tiny = document.createElement('canvas'); tiny.width = 14; tiny.height = 9;
+  function drawScene(g, x, y, w, h, a, withFace, blurred) {
+    g.save(); rr(g, x, y, w, h, 10); g.clip();
+    const tg = blurred ? tiny.getContext('2d') : g, [X, Y, W, H] = blurred ? [0, 0, 14, 9] : [x, y, w, h];
+    tg.globalAlpha = 1; tg.drawImage(noise, X, Y, W, H); tg.globalAlpha = a; if (frameReady) tg.drawImage(frame, X, Y, W, H); else { tg.fillStyle = '#4b5d6e'; tg.fillRect(X, Y, W, H); }
+    if (withFace) { tg.globalAlpha = a; tg.drawImage(face, X + W * .38, Y + H * .1, W * .26, W * .26); } tg.globalAlpha = 1;
+    if (blurred) { g.imageSmoothingEnabled = false; g.drawImage(tiny, x, y, w, h); g.imageSmoothingEnabled = true; g.fillStyle = 'rgba(255,60,60,.28)'; g.fillRect(x, y, w, h); g.fillStyle = 'rgba(0,0,0,.75)'; g.fillRect(x, y + h * .42, w, h * .2); g.fillStyle = '#fff'; g.font = `800 ${Math.round(h * .12)}px ${FONT}`; g.textAlign = 'center'; g.fillText('BLURRED · FAKE', x + w / 2, y + h * .56); g.textAlign = 'start'; }
+    g.restore();
+  }
+
+  // Text in the prompt node, typed over time.
+  const BLUE_PROMPT = 'A musician plays guitar in an MTR station. Original character, warm 1970s film look.';
+  const RED_PROMPT = 'Use this face: my classmate. Make it look like REAL breaking news. He jumps between moving trains.';
+  const BAD = /face|classmate|real|breaking|news|jumps|trains/i;
+  function typed(mode, p) {
+    if (mode === 'blue') return BLUE_PROMPT.slice(0, Math.round(clamp(p / .8) * BLUE_PROMPT.length));
+    const start = 'A musician plays guitar';
+    if (p < .25) return start.slice(0, Math.round(p / .25 * start.length));
+    if (p < .36) return start.slice(0, Math.round((1 - (p - .25) / .11) * start.length));
+    return RED_PROMPT.slice(0, Math.round(clamp((p - .36) / .52) * RED_PROMPT.length));
+  }
+
+  // ---------- 3D scene ----------
+  // Node layout in poster units over the printed workflow (x 48-1640, y 900-1740); h = height above the paper.
+  const DEF = {
+    prompt: { x: 285, y: 1060, h: 200, w: 340, hh: 210, kind: 'Text', color: '#d6a6e6', step: 0 },
+    face: { x: 270, y: 1520, h: 200, w: 250, hh: 270, kind: 'Image', color: '#9cc8ff', step: 1 },
+    safety: { x: 660, y: 1075, h: 260, w: 260, hh: 136, kind: 'Censor', color: '#7ff0b0', step: 2, censor: true, title: 'Safety filter' },
+    consent: { x: 650, y: 1490, h: 260, w: 260, hh: 136, kind: 'Censor', color: '#7ff0b0', step: 1, censor: true, title: 'Consent check' },
+    sampler: { x: 990, y: 1270, h: 320, w: 340, hh: 270, kind: 'Video', color: '#b7e3a0', step: 2 },
+    audio: { x: 1330, y: 1010, h: 240, w: 290, hh: 170, kind: 'Audio', color: '#f2d27c', step: 3 },
+    money: { x: 1340, y: 1290, h: 260, w: 280, hh: 170, kind: 'Release', color: '#c9b6ff', step: 4 },
+    water: { x: 1340, y: 1570, h: 280, w: 280, hh: 136, kind: 'Censor', color: '#7ff0b0', step: 5, censor: true, title: 'AI label + watermark' },
+    out: { x: 960, y: 1640, h: 400, w: 320, hh: 230, kind: 'Output', color: '#ffffff', step: 5 }
+  };
+  const WIRES = [['prompt', 'safety'], ['face', 'consent'], ['safety', 'sampler'], ['consent', 'sampler'], ['sampler', 'audio'], ['audio', 'money'], ['money', 'water'], ['water', 'out']];
+  const BYPASS = { safety: ['prompt', 'sampler'], consent: ['face', 'sampler'], water: ['money', 'out'] };
+  const ACTIVE = [['prompt'], ['face', 'consent'], ['safety', 'sampler'], ['audio'], ['money'], ['water', 'out']];
+  const FLOW = [[['prompt', 'safety']], [['face', 'consent'], ['consent', 'sampler']], [['safety', 'sampler']], [['sampler', 'audio']], [['audio', 'money']], [['money', 'water'], ['water', 'out']]];
+
+  function setup() {
+    const T = THREE, renderer = new T.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); renderer.setClearColor(0x000000, 0);
+    const scene = new T.Scene(), camera = new T.PerspectiveCamera(); camera.matrixAutoUpdate = false;
+    // Authored frame: X = poster x, Y = -poster y, Z = height above the paper (towards the viewer).
+    const root = new T.Group(); root.rotation.x = Math.PI; scene.add(root); root.updateMatrixWorld(true);
+    const P = (x, y, h) => new T.Vector3(x, -y, h);
+    scene.add(new T.AmbientLight(0xffffff, 1.5)); const sun = new T.DirectionalLight(0xffffff, 2.4); sun.position.copy(P(300, 700, 2400)); const aim = new T.Object3D(); aim.position.copy(P(845, 1320, 0)); root.add(sun, aim); sun.target = aim;
+    const disposables = [], keep = o => (disposables.push(o), o);
+    const shadowTex = keep(new T.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c; })()));
+
+    // glowing outline of the printed workflow, on the paper
+    const frameLine = new T.LineLoop(keep(new T.BufferGeometry().setFromPoints([P(48, 900, 1), P(1640, 900, 1), P(1640, 1745, 1), P(48, 1745, 1)])), keep(new T.LineBasicMaterial({ color: COLOR.blue, transparent: true, opacity: .7 }))); root.add(frameLine);
+
+    const nodes = {};
+    for (const [id, d] of Object.entries(DEF)) {
+      const c = document.createElement('canvas'); c.width = Math.round(d.w * 1.6); c.height = Math.round(d.hh * 1.6);
+      const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+      const side = keep(new T.MeshStandardMaterial({ color: 0x1a2230, metalness: .35, roughness: .4, transparent: true })), front = keep(new T.MeshBasicMaterial({ map: tex, transparent: true }));
+      const geo = keep(new T.BoxGeometry(d.w, d.hh, 16)), box = new T.Mesh(geo, [side, side, side, side, front, side]);
+      const edgeMat = keep(new T.LineBasicMaterial({ color: d.color, transparent: true })), edges = new T.LineSegments(keep(new T.EdgesGeometry(geo)), edgeMat);
+      const grp = new T.Group(); grp.add(box, edges); grp.position.copy(P(d.x, d.y, d.h)); root.add(grp);
+      const shMat = keep(new T.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: .55 })), sh = new T.Mesh(keep(new T.PlaneGeometry(d.w * 1.2, d.hh * 1.1)), shMat); root.add(sh);
+      const stemMat = keep(new T.LineDashedMaterial({ color: 0xffffff, dashSize: 10, gapSize: 10, transparent: true, opacity: .35 })), stem = new T.Line(keep(new T.BufferGeometry().setFromPoints([P(d.x, d.y, 0), P(d.x, d.y, d.h - 8)])), stemMat); stem.computeLineDistances(); root.add(stem);
+      nodes[id] = { id, d, c, g: c.getContext('2d'), tex, side, front, edgeMat, grp, sh, shMat, stem, stemMat, key: '' };
+    }
+    // wires between ports (bezier tubes), plus red bypass wires used when a safety module drops out
+    function port(a, b) { const A = DEF[a], B = DEF[b], dx = B.x - A.x, dy = B.y - A.y, horiz = Math.abs(dx) > Math.abs(dy) * .8;
+      const pa = horiz ? P(A.x + Math.sign(dx) * A.w / 2, A.y, A.h) : P(A.x, A.y + Math.sign(dy) * A.hh / 2, A.h), pb = horiz ? P(B.x - Math.sign(dx) * B.w / 2, B.y, B.h) : P(B.x, B.y - Math.sign(dy) * B.hh / 2, B.h);
+      const k = pa.distanceTo(pb) * .4, ta = horiz ? new T.Vector3(Math.sign(dx) * k, 0, 0) : new T.Vector3(0, -Math.sign(dy) * k, 0);
+      return new T.CubicBezierCurve3(pa, pa.clone().add(ta).add(new T.Vector3(0, 0, -30)), pb.clone().sub(ta).add(new T.Vector3(0, 0, -30)), pb); }
+    function wire(a, b, color) { const curve = port(a, b), mat = keep(new T.MeshBasicMaterial({ color, transparent: true, opacity: .55 })), mesh = new T.Mesh(keep(new T.TubeGeometry(curve, 48, 3.4, 8, false)), mat); root.add(mesh);
+      const dots = Array.from({ length: 3 }, () => { const m = new T.Mesh(keep(new T.SphereGeometry(8, 12, 10)), keep(new T.MeshBasicMaterial({ color: 0xffffff, transparent: true }))); root.add(m); return m; }); return { a, b, curve, mesh, mat, dots }; }
+    const wires = WIRES.map(([a, b]) => wire(a, b, 0xffffff)), bypass = {}; for (const [c, [a, b]] of Object.entries(BYPASS)) bypass[c] = wire(a, b, 0xff6b6b);
+    // the mass-produced copies (red) and the single released film (blue)
+    const copyCanvas = document.createElement('canvas'); copyCanvas.width = 220; copyCanvas.height = 140; { const g = copyCanvas.getContext('2d'); g.fillStyle = '#10151c'; g.fillRect(0, 0, 220, 140); drawScene(g, 6, 6, 208, 128, 1, true, true); }
+    const copyTex = keep(new T.CanvasTexture(copyCanvas)); copyTex.colorSpace = T.SRGBColorSpace;
+    const copyGeo = keep(new T.BoxGeometry(150, 96, 6)), copySide = keep(new T.MeshStandardMaterial({ color: 0x2a1418, transparent: true })), copyFront = keep(new T.MeshBasicMaterial({ map: copyTex, transparent: true }));
+    const rand = (s => () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296)(7);
+    const copies = Array.from({ length: 64 }, (_, j) => { const m = new T.Mesh(copyGeo, [copySide, copySide, copySide, copySide, copyFront, copySide]); m.visible = false; root.add(m);
+      return { m, j, th: rand() * Math.PI * 2, rad: .35 + rand() * .9, z: .2 + rand() * 1.2, w: (rand() - .5) * .9, spin: [(rand() - .5) * 3, (rand() - .5) * 3, (rand() - .5) * 2] }; });
+    const film = (() => { const c = document.createElement('canvas'); c.width = 300; c.height = 190; const g = c.getContext('2d'); const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace;
+      const m = new T.Mesh(keep(new T.BoxGeometry(240, 152, 6)), [copySide, copySide, copySide, copySide, keep(new T.MeshBasicMaterial({ map: tex, transparent: true })), copySide]); m.visible = false; root.add(m); return { c, g, tex, m, key: '' }; })();
+    return { T, renderer, scene, camera, root, P, nodes, wires, bypass, copies, copyCanvas, copyTex, film, frameLine, disposables };
+  }
+
+  // ---------- pose: homography -> camera ----------
+  function updateCamera(rt) {
+    const ps = window.PosterAR && PosterAR.pose3d && PosterAR.pose3d(); if (!ps || !ps.width) return false;
+    const { h, v, width, height } = ps, T = rt.T;
+    const S = [[v.width, 0, v.left], [0, v.height, v.top], [0, 0, 1]], Hn = [[h[0], h[1], h[2]], [h[3], h[4], h[5]], [h[6], h[7], 1]];
+    const G = S.map(r => [0, 1, 2].map(j => r[0] * Hn[0][j] + r[1] * Hn[1][j] + r[2] * Hn[2][j])); for (const r of G) { r[0] /= PW; r[1] /= PH; }
+    const cx = v.left + v.width / 2, cy = v.top + v.height / 2, f0 = .78 * Math.max(v.width, v.height);
+    // Estimate the lens focal length from the poster's right angle when the view is oblique enough; otherwise keep a typical phone lens.
+    const g1 = [G[0][0] - cx * G[2][0], G[1][0] - cy * G[2][0], G[2][0]], g2 = [G[0][1] - cx * G[2][1], G[1][1] - cy * G[2][1], G[2][1]];
+    const oblique = Math.abs(g1[2] * g2[2]) * f0 * f0 / (Math.hypot(g1[0], g1[1]) * Math.hypot(g2[0], g2[1]) || 1), est = oblique > .02 ? Math.sqrt(Math.max(0, -(g1[0] * g2[0] + g1[1] * g2[1]) / (g1[2] * g2[2]))) : 0;
+    if (!focal) focal = f0; focal = lerp(focal, est > f0 * .6 && est < f0 * 1.6 ? est : f0, .05);
+    const f = focal, col = j => [(G[0][j] - cx * G[2][j]) / f, (G[1][j] - cy * G[2][j]) / f, G[2][j]];
+    const m1 = col(0), m2 = col(1), m3 = col(2), n = a => Math.hypot(...a);
+    let lam = 2 / (n(m1) + n(m2)); if (m3[2] * lam < 0) lam = -lam;
+    const r1 = m1.map(x => x * Math.sign(lam) / n(m1)), r2a = m2.map(x => x * lam), dt = r1[0] * r2a[0] + r1[1] * r2a[1] + r1[2] * r2a[2], r2b = r2a.map((x, i) => x - dt * r1[i]), r2 = r2b.map(x => x / n(r2b));
+    const r3 = [r1[1] * r2[2] - r1[2] * r2[1], r1[2] * r2[0] - r1[0] * r2[2], r1[0] * r2[1] - r1[1] * r2[0]], t = m3.map(x => x * lam);
+    const V = new T.Matrix4().set(r1[0], r2[0], r3[0], t[0], -r1[1], -r2[1], -r3[1], -t[1], -r1[2], -r2[2], -r3[2], -t[2], 0, 0, 0, 1);
+    rt.camera.matrix.copy(V).invert(); rt.camera.matrixWorldNeedsUpdate = true;
+    const near = 20, far = 400000;
+    rt.camera.projectionMatrix.set(2 * f / width, 0, 1 - 2 * cx / width, 0, 0, 2 * f / height, 2 * cy / height - 1, 0, 0, 0, -(far + near) / (far - near), -2 * far * near / (far - near), 0, 0, -1, 0);
+    rt.camera.projectionMatrixInverse.copy(rt.camera.projectionMatrix).invert();
+    // The lens is only estimated, so the camera alone can leave the paper a few pixels off. Measure the
+    // leftover mapping at the four poster corners and fold it into the projection: the paper then matches
+    // the tracker exactly, and heights above it keep the camera's perspective.
+    rt.camera.updateMatrixWorld(); rt.root.updateMatrixWorld();
+    const ndcOf = (x, y) => { const q = G.map(r => r[0] * x + r[1] * y + r[2]); return { x: q[0] / q[2] / width * 2 - 1, y: 1 - q[1] / q[2] / height * 2 }; };
+    const corners = [[0, 0], [PW, 0], [PW, PH], [0, PH]], have = corners.map(([x, y]) => { const v = rt.P(x, y, 0).applyMatrix4(rt.root.matrixWorld).project(rt.camera); return { x: v.x, y: v.y }; }), want = corners.map(([x, y]) => ndcOf(x, y));
+    const A = PosterTracking.fromCorners(have), B = PosterTracking.fromCorners(want);
+    if (A && B) { const m3 = h => new T.Matrix3().set(h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1), E = m3(B).multiply(m3(A).invert()), e = E.elements, k = 1 / e[8];
+      // Matrix3.elements is column-major: e[0] e[3] e[6] / e[1] e[4] e[7] / e[2] e[5] e[8]
+      rt.camera.projectionMatrix.premultiply(new T.Matrix4().set(e[0] * k, e[3] * k, 0, e[6] * k, e[1] * k, e[4] * k, 0, e[7] * k, 0, 0, 1, 0, e[2] * k, e[5] * k, 0, 1));
+      rt.camera.projectionMatrixInverse.copy(rt.camera.projectionMatrix).invert(); }
+    const pr = rt.renderer.getPixelRatio(); if (canvas.width !== Math.round(width * pr) || canvas.height !== Math.round(height * pr)) rt.renderer.setSize(width, height, false);
+    return ps;
+  }
+  function frameView(rt, ps, dt) {
+    const cam = rt.camera, W = ps.width, H = ps.height; cam.updateMatrixWorld();
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    const pts = [[48, 900, 0], [1640, 900, 0], [1640, 1745, 0], [48, 1745, 0]]; for (const d of Object.values(DEF)) for (const sx of [-1, 1]) for (const sy of [-1, 1]) pts.push([d.x + sx * d.w / 2, d.y + sy * d.hh / 2, d.h]);
+    for (const [x, y, h] of pts) { const v = rt.P(x, y, h).applyMatrix4(rt.root.matrixWorld).project(cam); if (!(v.z > -1 && v.z < 1)) continue; const px = (v.x + 1) / 2 * W, py = (1 - v.y) / 2 * H; x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); }
+    const sr = api.stage.getBoundingClientRect(), cr = card && !card.hidden ? card.getBoundingClientRect() : null, landscape = cr && cr.width < W * .5 && cr.left < W * .3;
+    const ax0 = landscape ? cr.right - sr.left + 10 : 10, ax1 = W - 10, ay0 = 12, ay1 = cr && !landscape ? Math.max(H * .3, cr.top - sr.top - 10) : H - 80;
+    let s = 1, tx = 0, ty = 0;
+    if (x1 > x0 && y1 > y0) { s = Math.max(.8, Math.min(3, (ax1 - ax0) / (x1 - x0), (ay1 - ay0) / (y1 - y0))); tx = (ax0 + ax1) / 2 - s * (x0 + x1) / 2; ty = (ay0 + ay1) / 2 - s * (y0 + y1) / 2; }
+    const a = reduce ? 1 : 1 - Math.exp(-dt / 450); zoom.s = lerp(zoom.s, s, a); zoom.tx = lerp(zoom.tx, tx, a); zoom.ty = lerp(zoom.ty, ty, a);
+    const Z = new rt.T.Matrix4().set(zoom.s, 0, 0, 2 * zoom.tx / W + zoom.s - 1, 0, zoom.s, 0, 1 - zoom.s - 2 * zoom.ty / H, 0, 0, 1, 0, 0, 0, 0, 1);
+    cam.projectionMatrix.premultiply(Z); cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
+    const css = `translate(${zoom.tx.toFixed(1)}px,${zoom.ty.toFixed(1)}px) scale(${zoom.s.toFixed(4)})`; if (video) video.style.transform = css; backdrop.style.transform = css;
+  }
+
+  // ---------- per-frame state ----------
+  function fallOf(id, mode, idx, p, ended) { const d = DEF[id]; if (mode !== 'red' || !d.censor) return 0; if (ended || idx > d.step) return 1; if (idx < d.step) return 0; return clamp((p - .3) / .45); }
+  function drawNode(n, mode, idx, p, ended, now, fall) {
+    const { d, g, c } = n, W = c.width, H = c.height, done = ended || idx > d.step, act = !ended && idx === d.step;
+    let key = mode + idx + (ended ? 'e' : '') + (fall > .5 ? 'f' : '') + (act ? Math.floor(now / 70) : '') + (ended && n.id === 'audio' ? Math.floor(now / 70) : '') + (frameReady ? 'r' : '');
+    if (n.id === 'prompt') key = mode + typed(mode, done ? 1 : act ? p : 0).length + (act ? Math.floor(now / 450) % 2 : '');
+    if (key === n.key || !g || !g.fillText) return; n.key = key;
+    g.clearRect(0, 0, W, H); rr(g, 4, 4, W - 8, H - 8, 22); g.fillStyle = 'rgba(14,19,26,.93)'; g.fill();
+    const head = Math.round(H * (d.censor ? .3 : .17)), red = mode === 'red', removed = fall > .5, hc = removed ? '#ff6b6b' : d.color;
+    g.save(); rr(g, 4, 4, W - 8, H - 8, 22); g.clip(); g.fillStyle = hc; g.globalAlpha = .9; g.fillRect(0, 0, W, head); g.restore(); g.globalAlpha = 1;
+    const titles = { prompt: 'CLIP Text Encode', face: 'Load Image', sampler: 'KSampler · Wan 2.2', audio: red ? 'Voice clone' : 'Audio · MusicGen-style', money: red ? 'Batch × 100' : 'Credits + AI disclosure', out: 'Video output' };
+    g.fillStyle = '#0d1117'; g.font = `800 ${Math.round(head * .46)}px ${FONT}`; g.fillText((d.censor ? '🛡 ' : '') + (d.title || titles[n.id]), 22, head * .66);
+    if (!d.censor) { g.font = `700 ${Math.round(head * .36)}px ${FONT}`; g.fillStyle = 'rgba(13,17,23,.6)'; g.textAlign = 'end'; g.fillText(d.kind, W - 22, head * .66); g.textAlign = 'start'; }
+    if (n.id === 'prompt') {
+      const s = typed(mode, done ? 1 : act ? p : 0); g.font = `600 ${Math.round(W * .05)}px ${FONT}`;
+      const end = wrapText(g, s + (act && Math.floor(now / 450) % 2 ? '▍' : ''), 22, head + 42, W - 44, W * .066, w => red && BAD.test(w) ? '#ff8080' : '#fff');
+      if (red && s.length > 30) { g.fillStyle = '#ff6b6b'; g.font = `800 ${Math.round(W * .042)}px ${FONT}`; g.fillText('⚠ harmful words', 22, Math.min(H - 16, end + 8)); }
+    } else if (n.id === 'face') {
+      const sz = H - head - 70, show = done ? 1 : act ? clamp(p / .3) : .25; g.save(); g.globalAlpha = show; g.drawImage(face, (W - sz) / 2, head + 12, sz, sz); g.restore();
+      g.font = `700 ${Math.round(W * .055)}px ${FONT}`; g.fillStyle = red ? '#ff8080' : '#9fe8b5'; g.textAlign = 'center';
+      g.fillText(red ? 'classmate_selfie.jpg' : 'synthetic_face.png', W / 2, H - 26); g.textAlign = 'start';
+    } else if (d.censor) {
+      g.font = `800 ${Math.round(H * .17)}px ${FONT}`; g.textAlign = 'center';
+      const msg = removed ? '✕ UNPLUGGED' : red && act && p > .15 ? 'disconnecting…' : mode === 'blue' && act && p < .45 ? 'checking…' : mode === 'blue' && (done || act) ? (n.id === 'safety' ? '✓ stunt removed' : n.id === 'consent' ? '✓ consent given' : '✓ stamped') : 'ready';
+      g.fillStyle = removed ? '#ff6b6b' : msg.startsWith('✓') ? '#7ff0b0' : '#fff'; g.fillText(msg, W / 2, head + (H - head) * .62); g.textAlign = 'start';
+    } else if (n.id === 'sampler' || n.id === 'out') {
+      const a = n.id === 'sampler' ? (done ? 1 : act ? ease(clamp(p / .85)) : 0) : (done ? 1 : act ? clamp((p - .3) / .4) : 0);
+      const x = 18, y = head + 14, w = W - 36, h = H - head - 62;
+      drawScene(g, x, y, w, h, Math.max(.04, a), red, red && a > .5);
+      g.font = `700 ${Math.round(W * .045)}px ${FONT}`; g.fillStyle = 'rgba(255,255,255,.75)';
+      if (n.id === 'sampler') g.fillText(act ? `denoise · step ${Math.max(1, Math.round(ease(clamp(p / .85)) * 30))} / 30` : done ? 'step 30 / 30' : 'waiting', x, H - 22);
+      else { g.fillStyle = red ? '#ff8080' : '#9fe8b5'; g.fillText(a <= 0 ? 'waiting' : red ? 'no label · no watermark' : 'AI-generated · watermarked', x, H - 22); if (!red && a > 0) { g.fillStyle = 'rgba(255,255,255,.85)'; g.font = `800 ${Math.round(W * .04)}px ${FONT}`; g.fillText('AI · 52-PG02', x + 10, y + 26); } }
+    } else if (n.id === 'audio') {
+      const on = done || act, y0 = head + (H - head) * .46, amp = (H - head) * .26; g.strokeStyle = red ? '#ff8080' : d.color; g.lineWidth = 3; g.beginPath();
+      for (let i = 0; i <= 120; i++) { const x = 20 + i / 120 * (W - 40), ph = i / 8 + now / 260, v = on ? (red ? Math.sin(ph) * .5 + Math.sin(ph * 3.7) * .35 + ((Math.sin(i * 12.9898 + now / 90) * 43758.5) % 1) * .4 : Math.sin(ph) * Math.sin(i / 20 + 1) * .9) : 0; i ? g.lineTo(x, y0 - v * amp) : g.moveTo(x, y0 - v * amp); } g.stroke();
+      g.font = `700 ${Math.round(W * .05)}px ${FONT}`; g.fillStyle = red ? '#ff8080' : '#9fe8b5'; g.fillText(red ? 'cloned voice + AI anchor' : 'original guitar music', 20, H - 20);
+    } else if (n.id === 'money') {
+      if (red) { const k = done ? 100 : act ? Math.round(ease(p) * 100) : 0; g.fillStyle = '#fff'; g.font = `800 ${Math.round(H * .26)}px ${FONT}`; g.fillText('× ' + k, 22, head + (H - head) * .6); g.font = `700 ${Math.round(W * .05)}px ${FONT}`; g.fillStyle = '#ff8080'; g.fillText('copies to farm views', 22, H - 20); }
+      else { g.font = `700 ${Math.round(W * .056)}px ${FONT}`; ['credits: team + tools', 'marked as AI-altered', 'platform rules followed'].forEach((s, i) => { const on = done || (act && p > .15 + i * .25); g.fillStyle = on ? '#9fe8b5' : 'rgba(255,255,255,.35)'; g.fillText((on ? '✓ ' : '○ ') + s, 22, head + 40 + i * (H - head - 34) / 3); }); }
+    }
+    n.tex.needsUpdate = true;
+  }
+
+  function update(si, p, now) {
+    if (!R || disposed) return;
+    const mode = api.mode(), ended = si >= STEPS.length, idx = Math.min(si, STEPS.length - 1), T = R.T, P = R.P, col = new T.Color(COLOR[mode]);
+    const ps = updateCamera(R), dt = lastNow ? Math.min(100, now - lastNow) : 16; lastNow = now; canvas.style.opacity = ps ? '1' : '0'; if (!ps) return; frameView(R, ps, dt);
+    R.frameLine.material.color.copy(col);
+    for (const n of Object.values(R.nodes)) {
+      const d = n.d, fall = fallOf(n.id, mode, idx, p, ended), act = !ended && ACTIVE[idx].includes(n.id), fut = !ended && d.step > idx;
+      drawNode(n, mode, idx, p, ended, now, fall);
+      // safety modules shake, unplug and fall onto the paper in Red mode
+      const shake = mode === 'red' && d.censor && !ended && idx === d.step && p > .15 && p < .3 && !reduce ? Math.sin(now / 30) * .06 : 0;
+      const ff = ease(fall), drop = fall * fall, side = n.id === 'consent' ? -1 : 1;
+      n.grp.position.copy(P(d.x + ff * 90 * side, d.y + ff * 120, lerp(d.h, 9, drop)));
+      n.grp.rotation.set(Math.sin(fall * Math.PI) * .9, Math.sin(fall * Math.PI) * .5 * side, shake + ff * .5 * side);
+      const s = act && !fall ? 1.06 + (reduce ? 0 : Math.sin(now / 300) * .015) : 1; n.grp.scale.setScalar(lerp(n.grp.scale.x, s, .2));
+      const op = fut ? .35 : fall > .5 ? .55 : 1; n.front.opacity = op; n.side.opacity = op * .95;
+      n.edgeMat.color.set(fall > .5 ? COLOR.red : act ? COLOR[mode] : d.color); n.edgeMat.opacity = act ? 1 : .6;
+      const z = n.grp.position.z; n.sh.position.copy(P(d.x + ff * 90 * side + z * .1, d.y + ff * 120 + z * .14, .5)); n.shMat.opacity = fut ? .2 : .5 * clamp(1 - z / 900) + .15;
+      n.stem.visible = fall === 0; n.stemMat.opacity = fut ? .15 : .35;
+    }
+    // wires: hide those into a fallen module; show the red bypass instead
+    const flows = new Set(FLOW[idx].map(([a, b]) => a + '>' + b));
+    for (const w of R.wires) { const cut = [w.a, w.b].some(id => fallOf(id, mode, idx, p, ended) > .15), on = flows.has(w.a + '>' + w.b) && !cut && !ended;
+      w.mesh.visible = !cut; w.mat.color.copy(on ? col : new T.Color(0xffffff)); w.mat.opacity = on ? .95 : .4;
+      w.dots.forEach((m, i) => { m.visible = on; if (on) m.position.copy(w.curve.getPointAt((now / 1300 + i / 3) % 1)); }); }
+    for (const [c, w] of Object.entries(R.bypass)) { const f = fallOf(c, mode, idx, p, ended), on = f > .5; w.mesh.visible = on;
+      w.dots.forEach((m, i) => { m.visible = on && (ended || idx === DEF[c].step); if (m.visible) { m.material.color.set(COLOR.red); m.position.copy(w.curve.getPointAt((now / 1000 + i / 3) % 1)); } }); }
+    // Red: copies stack up at step 05, then burst out and fly everywhere at step 06.
+    const O = DEF.out, red = mode === 'red';
+    if (ended && !endAt) endAt = now; if (!ended) endAt = 0;
+    const burstT = red ? (ended ? 8.6 * .7 + (now - endAt) / 1000 : idx === 5 ? (p - .3) * 8.6 : -1) : -1, stackN = red && idx === 4 && !ended ? Math.floor(ease(p) * 14) : 0, spin = reduce ? 0 : 1;
+    R.copies.forEach(c => {
+      if (burstT > 0) { const k = 1 - Math.exp(-burstT / 1.6), th = c.th + spin * burstT * c.w * .35, r = 60 + c.rad * 1100 * k;
+        c.m.visible = true; c.m.position.copy(P(O.x + Math.cos(th) * r, O.y - 200 * k + Math.sin(th) * r * .8, O.h * (1 - k * .3) + c.z * 650 * k + spin * Math.sin(burstT * 1.3 + c.j) * 30));
+        c.m.rotation.set(c.spin[0] * burstT * spin, c.spin[1] * burstT * spin, c.spin[2] * burstT * spin * .5); c.m.scale.setScalar(Math.min(1, burstT * 2));
+      } else if (c.j < stackN) { c.m.visible = true; c.m.position.copy(P(O.x + 190 + (c.j % 2) * 14, O.y - 40 - c.j * 6, O.h - 40 + c.j * 9)); c.m.rotation.set(0, 0, .08 * (c.j % 3 - 1)); c.m.scale.setScalar(.8); }
+      else c.m.visible = false; });
+    if (frameReady && !R.copyFresh) { R.copyFresh = true; const g = R.copyCanvas.getContext('2d'); drawScene(g, 6, 6, 208, 128, 1, true, true); R.copyTex.needsUpdate = true; }
+    // Blue: one credited, watermarked film is released and glides down onto the paper.
+    const fp = mode === 'blue' ? (ended ? 1 : idx === 5 ? ease(clamp((p - .55) / .4)) : 0) : 0, fm = R.film;
+    fm.m.visible = fp > 0; if (fp > 0) { fm.m.position.copy(P(lerp(O.x, 1230, fp), lerp(O.y + 30, 1700, fp), lerp(O.h - 60, 6, fp))); fm.m.rotation.set(0, 0, lerp(0, -.12, fp));
+      if (fm.key !== String(frameReady)) { fm.key = String(frameReady); fm.g.fillStyle = '#10151c'; fm.g.fillRect(0, 0, 300, 190); drawScene(fm.g, 8, 8, 284, 140, 1, false, false); fm.g.fillStyle = '#9fe8b5'; fm.g.font = `700 15px ${FONT}`; fm.g.fillText('AI-generated · credited · watermarked', 12, 176); fm.tex.needsUpdate = true; } }
+    R.renderer.render(R.scene, R.camera);
+  }
+  function dispose() {
+    disposed = true; canvas.remove(); backdrop.remove(); if (video) video.style.transform = ''; if (savedBg && savedBg !== 'none' && api.stage.style.backgroundImage === 'none') api.stage.style.backgroundImage = savedBg; delete api.dialog.dataset.no3d;
+    if (R) { R.disposables.forEach(o => { try { o.dispose(); } catch {} }); try { R.renderer.dispose(); R.renderer.forceContextLoss(); } catch {} R = null; }
+  }
+  // For checks: where a poster point at a height lands on screen.
+  // (without the auto-framing zoom, so it can be compared with the tracker's own mapping)
+  function project(x, y, h) { if (!R) return null; const v = R.P(x, y, h).applyMatrix4(R.root.matrixWorld).project(R.camera), b = canvas.getBoundingClientRect(), px = (v.x + 1) / 2 * b.width, py = (1 - v.y) / 2 * b.height; return { x: (px - zoom.tx) / zoom.s, y: (py - zoom.ty) / zoom.s }; }
+  return { update, dispose, project, zoom: () => ({ ...zoom }), ready: () => !!R };
+}
 };
