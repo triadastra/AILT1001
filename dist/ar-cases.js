@@ -44,7 +44,7 @@ return { cases: {
 function createScene(api) {
   const PW = 1682, PH = 2378, reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const canvas = document.createElement('canvas'); canvas.id = 'ar-3d'; canvas.setAttribute('aria-hidden', 'true'); api.stage.appendChild(canvas);
-  let THREE = null, R = null, disposed = false, focal = 0, endAt = 0, lastNow = 0;
+  let THREE = null, R = null, disposed = false, focal = 0, endAt = 0, lastNow = 0; const fEst = [];
   // Auto-framing: a digital zoom applied to the blurred camera image and the 3D scene together, so the
   // workflow fills the space above the caption card and everything stays registered to the poster.
   const zoom = { s: 1, tx: 0, ty: 0 }, video = document.getElementById('camera-video'), card = document.getElementById('ar-explain');
@@ -96,23 +96,29 @@ function createScene(api) {
     return RED_PROMPT.slice(0, Math.round(clamp((p - .36) / .52) * RED_PROMPT.length));
   }
 
-  // ---------- 3D scene ----------
+  // ---------- 3D scene: ComfyUI-style nodes ----------
+  // Socket and link colours follow ComfyUI's defaults by data type; node colours use ComfyUI's colour presets.
+  const TYPE = { CLIP: '#FFD500', CONDITIONING: '#FFA931', MODEL: '#B39DDB', IMAGE: '#64B5F6', MASK: '#81C784', AUDIO: '#4EC9B0', STRING: '#A5D6A7' };
+  const PAL = { default: ['#353535', '#222222'], green: ['#353f35', '#223322'], red: ['#553333', '#332222'], cyan: ['#335555', '#223333'], purple: ['#553355', '#332233'] };
   // Node layout in poster units over the printed workflow (x 48-1640, y 900-1740); h = height above the paper.
   const DEF = {
-    prompt: { x: 285, y: 1060, h: 200, w: 340, hh: 210, kind: 'Text', color: '#d6a6e6', step: 0 },
-    face: { x: 270, y: 1520, h: 200, w: 250, hh: 270, kind: 'Image', color: '#9cc8ff', step: 1 },
-    safety: { x: 660, y: 1075, h: 260, w: 260, hh: 136, kind: 'Censor', color: '#7ff0b0', step: 2, censor: true, title: 'Safety filter' },
-    consent: { x: 650, y: 1490, h: 260, w: 260, hh: 136, kind: 'Censor', color: '#7ff0b0', step: 1, censor: true, title: 'Consent check' },
-    sampler: { x: 990, y: 1270, h: 320, w: 340, hh: 270, kind: 'Video', color: '#b7e3a0', step: 2 },
-    audio: { x: 1330, y: 1010, h: 240, w: 290, hh: 170, kind: 'Audio', color: '#f2d27c', step: 3 },
-    money: { x: 1340, y: 1290, h: 260, w: 280, hh: 170, kind: 'Release', color: '#c9b6ff', step: 4 },
-    water: { x: 1340, y: 1570, h: 280, w: 280, hh: 136, kind: 'Censor', color: '#7ff0b0', step: 5, censor: true, title: 'AI label + watermark' },
-    out: { x: 960, y: 1640, h: 400, w: 320, hh: 230, kind: 'Output', color: '#ffffff', step: 5 }
+    prompt: { x: 210, y: 1030, h: 200, w: 300, hh: 230, step: 0, pal: m => m === 'red' ? 'red' : 'green', title: () => 'CLIP Text Encode (Prompt)', ins: [['clip', 'CLIP']], outs: [['CONDITIONING', 'CONDITIONING']] },
+    face: { x: 210, y: 1500, h: 200, w: 260, hh: 300, step: 1, pal: () => 'default', title: () => 'Load Image', ins: [], outs: [['IMAGE', 'IMAGE'], ['MASK', 'MASK']] },
+    safety: { x: 565, y: 1030, h: 260, w: 280, hh: 170, step: 2, censor: true, pal: () => 'green', title: () => '🛡 Safety Filter', ins: [['conditioning', 'CONDITIONING']], outs: [['CONDITIONING', 'CONDITIONING']] },
+    consent: { x: 565, y: 1500, h: 260, w: 280, hh: 170, step: 1, censor: true, pal: () => 'green', title: () => '🛡 Consent Check', ins: [['image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
+    sampler: { x: 915, y: 1265, h: 330, w: 320, hh: 380, step: 2, pal: () => 'default', title: () => 'KSampler (Wan 2.2)', ins: [['model', 'MODEL'], ['positive', 'CONDITIONING'], ['start_image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
+    audio: { x: 1235, y: 965, h: 260, w: 270, hh: 180, step: 3, pal: m => m === 'red' ? 'red' : 'cyan', title: m => m === 'red' ? 'Voice Clone' : 'MusicGen', ins: [], outs: [['AUDIO', 'AUDIO']] },
+    money: { x: 1235, y: 1255, h: 280, w: 270, hh: 190, step: 4, pal: m => m === 'red' ? 'red' : 'purple', title: m => m === 'red' ? 'Repeat Batch' : 'Credits + AI Disclosure', ins: [], outs: [['metadata', 'STRING']] },
+    water: { x: 1235, y: 1545, h: 300, w: 270, hh: 170, step: 5, censor: true, pal: () => 'green', title: () => '🛡 AI Label + Watermark', ins: [['images', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
+    out: { x: 1530, y: 1265, h: 360, w: 240, hh: 330, step: 5, pal: () => 'default', title: () => 'Save Video', ins: [['images', 'IMAGE'], ['audio', 'AUDIO'], ['metadata', 'STRING']], outs: [] }
   };
-  const WIRES = [['prompt', 'safety'], ['face', 'consent'], ['safety', 'sampler'], ['consent', 'sampler'], ['sampler', 'audio'], ['audio', 'money'], ['money', 'water'], ['water', 'out']];
-  const BYPASS = { safety: ['prompt', 'sampler'], consent: ['face', 'sampler'], water: ['money', 'out'] };
+  // [from node, output slot, to node, input slot]
+  const LINKS = [['prompt', 0, 'safety', 0], ['safety', 0, 'sampler', 1], ['face', 0, 'consent', 0], ['consent', 0, 'sampler', 2], ['sampler', 0, 'water', 0], ['water', 0, 'out', 0], ['audio', 0, 'out', 1], ['money', 0, 'out', 2]];
+  const BYPASS = { safety: ['prompt', 0, 'sampler', 1], consent: ['face', 0, 'sampler', 2], water: ['sampler', 0, 'out', 0] };
   const ACTIVE = [['prompt'], ['face', 'consent'], ['safety', 'sampler'], ['audio'], ['money'], ['water', 'out']];
-  const FLOW = [[['prompt', 'safety']], [['face', 'consent'], ['consent', 'sampler']], [['safety', 'sampler']], [['sampler', 'audio']], [['audio', 'money']], [['money', 'water'], ['water', 'out']]];
+  const FLOW = [['prompt>safety'], ['face>consent', 'consent>sampler'], ['safety>sampler'], ['audio>out'], ['money>out'], ['sampler>water', 'water>out']];
+  const HEAD = 26, ROW = 20, WROW = 22, TEX = 2.2; // node units; texture pixels per unit (sharp when walking up close)
+  const slotY = i => HEAD + 13 + i * ROW;
 
   function setup() {
     const T = THREE, renderer = new T.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
@@ -130,24 +136,25 @@ function createScene(api) {
 
     const nodes = {};
     for (const [id, d] of Object.entries(DEF)) {
-      const c = document.createElement('canvas'); c.width = Math.round(d.w * 1.6); c.height = Math.round(d.hh * 1.6);
+      const c = document.createElement('canvas'); c.width = Math.round(d.w * TEX); c.height = Math.round(d.hh * TEX);
       const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
       const side = keep(new T.MeshStandardMaterial({ color: 0x1a2230, metalness: .35, roughness: .4, transparent: true })), front = keep(new T.MeshBasicMaterial({ map: tex, transparent: true }));
       const geo = keep(new T.BoxGeometry(d.w, d.hh, 16)), box = new T.Mesh(geo, [side, side, side, side, front, side]);
-      const edgeMat = keep(new T.LineBasicMaterial({ color: d.color, transparent: true })), edges = new T.LineSegments(keep(new T.EdgesGeometry(geo)), edgeMat);
+      const edgeMat = keep(new T.LineBasicMaterial({ color: 0x555555, transparent: true })), edges = new T.LineSegments(keep(new T.EdgesGeometry(geo)), edgeMat);
       const grp = new T.Group(); grp.add(box, edges); grp.position.copy(P(d.x, d.y, d.h)); root.add(grp);
       const shMat = keep(new T.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: .55 })), sh = new T.Mesh(keep(new T.PlaneGeometry(d.w * 1.2, d.hh * 1.1)), shMat); root.add(sh);
       const stemMat = keep(new T.LineDashedMaterial({ color: 0xffffff, dashSize: 10, gapSize: 10, transparent: true, opacity: .35 })), stem = new T.Line(keep(new T.BufferGeometry().setFromPoints([P(d.x, d.y, 0), P(d.x, d.y, d.h - 8)])), stemMat); stem.computeLineDistances(); root.add(stem);
       nodes[id] = { id, d, c, g: c.getContext('2d'), tex, side, front, edgeMat, grp, sh, shMat, stem, stemMat, key: '' };
     }
-    // wires between ports (bezier tubes), plus red bypass wires used when a safety module drops out
-    function port(a, b) { const A = DEF[a], B = DEF[b], dx = B.x - A.x, dy = B.y - A.y, horiz = Math.abs(dx) > Math.abs(dy) * .8;
-      const pa = horiz ? P(A.x + Math.sign(dx) * A.w / 2, A.y, A.h) : P(A.x, A.y + Math.sign(dy) * A.hh / 2, A.h), pb = horiz ? P(B.x - Math.sign(dx) * B.w / 2, B.y, B.h) : P(B.x, B.y - Math.sign(dy) * B.hh / 2, B.h);
-      const k = pa.distanceTo(pb) * .4, ta = horiz ? new T.Vector3(Math.sign(dx) * k, 0, 0) : new T.Vector3(0, -Math.sign(dy) * k, 0);
-      return new T.CubicBezierCurve3(pa, pa.clone().add(ta).add(new T.Vector3(0, 0, -30)), pb.clone().sub(ta).add(new T.Vector3(0, 0, -30)), pb); }
-    function wire(a, b, color) { const curve = port(a, b), mat = keep(new T.MeshBasicMaterial({ color, transparent: true, opacity: .55 })), mesh = new T.Mesh(keep(new T.TubeGeometry(curve, 48, 3.4, 8, false)), mat); root.add(mesh);
-      const dots = Array.from({ length: 3 }, () => { const m = new T.Mesh(keep(new T.SphereGeometry(8, 12, 10)), keep(new T.MeshBasicMaterial({ color: 0xffffff, transparent: true }))); root.add(m); return m; }); return { a, b, curve, mesh, mat, dots }; }
-    const wires = WIRES.map(([a, b]) => wire(a, b, 0xffffff)), bypass = {}; for (const [c, [a, b]] of Object.entries(BYPASS)) bypass[c] = wire(a, b, 0xff6b6b);
+    // links from output socket to input socket, as tubes with ComfyUI's horizontal bezier tangents,
+    // plus red bypass links used when a safety module drops out
+    const sock = (id, out, k) => { const d = DEF[id]; return P(d.x + (out ? 1 : -1) * (d.w / 2 - 9), d.y - d.hh / 2 + slotY(k), d.h + 8.5); };
+    function link([a, ai, b, bi], color) { const pa = sock(a, true, ai), pb = sock(b, false, bi), k = Math.max(70, Math.abs(pb.x - pa.x) * .5), lift = new T.Vector3(0, 0, 18);
+      const curve = new T.CubicBezierCurve3(pa, pa.clone().add(new T.Vector3(k, 0, 0)).add(lift), pb.clone().add(new T.Vector3(-k, 0, 0)).add(lift), pb);
+      const mat = keep(new T.MeshBasicMaterial({ color, transparent: true, opacity: .8 })), mesh = new T.Mesh(keep(new T.TubeGeometry(curve, 48, 3.2, 8, false)), mat); root.add(mesh);
+      const dots = Array.from({ length: 3 }, () => { const m = new T.Mesh(keep(new T.SphereGeometry(7, 12, 10)), keep(new T.MeshBasicMaterial({ color: 0xffffff, transparent: true }))); root.add(m); return m; });
+      return { a, b, ai, bi, key: a + '>' + b, curve, mesh, mat, dots, color: new T.Color(color) }; }
+    const wires = LINKS.map(l => link(l, TYPE[DEF[l[0]].outs[l[1]][1]])), bypass = {}; for (const [c, l] of Object.entries(BYPASS)) bypass[c] = link(l, 0xff6b6b);
     // the mass-produced copies (red) and the single released film (blue)
     const copyCanvas = document.createElement('canvas'); copyCanvas.width = 220; copyCanvas.height = 140; { const g = copyCanvas.getContext('2d'); g.fillStyle = '#10151c'; g.fillRect(0, 0, 220, 140); drawScene(g, 6, 6, 208, 128, 1, true, true); }
     const copyTex = keep(new T.CanvasTexture(copyCanvas)); copyTex.colorSpace = T.SRGBColorSpace;
@@ -170,7 +177,9 @@ function createScene(api) {
     // Estimate the lens focal length from the poster's right angle when the view is oblique enough; otherwise keep a typical phone lens.
     const g1 = [G[0][0] - cx * G[2][0], G[1][0] - cy * G[2][0], G[2][0]], g2 = [G[0][1] - cx * G[2][1], G[1][1] - cy * G[2][1], G[2][1]];
     const oblique = Math.abs(g1[2] * g2[2]) * f0 * f0 / (Math.hypot(g1[0], g1[1]) * Math.hypot(g2[0], g2[1]) || 1), est = oblique > .02 ? Math.sqrt(Math.max(0, -(g1[0] * g2[0] + g1[1] * g2[1]) / (g1[2] * g2[2]))) : 0;
-    if (!focal) focal = f0; focal = lerp(focal, est > f0 * .6 && est < f0 * 1.6 ? est : f0, .05);
+    // Once enough oblique views agree, the lens estimate is locked (median), so the nodes don't 'breathe' as people walk.
+    if (est > f0 * .6 && est < f0 * 1.6) { fEst.push(est / f0); if (fEst.length > 120) fEst.shift(); }
+    const ratio = fEst.length >= 12 ? fEst.slice().sort((a, b) => a - b)[fEst.length >> 1] : 1; focal = focal ? lerp(focal, f0 * ratio, .08) : f0 * ratio;
     const f = focal, col = j => [(G[0][j] - cx * G[2][j]) / f, (G[1][j] - cy * G[2][j]) / f, G[2][j]];
     const m1 = col(0), m2 = col(1), m3 = col(2), n = a => Math.hypot(...a);
     let lam = 2 / (n(m1) + n(m2)); if (m3[2] * lam < 0) lam = -lam;
@@ -203,7 +212,9 @@ function createScene(api) {
     const sr = api.stage.getBoundingClientRect(), cr = card && !card.hidden ? card.getBoundingClientRect() : null, landscape = cr && cr.width < W * .5 && cr.left < W * .3;
     const ax0 = landscape ? cr.right - sr.left + 10 : 10, ax1 = W - 10, ay0 = 12, ay1 = cr && !landscape ? Math.max(H * .3, cr.top - sr.top - 10) : H - 80;
     let s = 1, tx = 0, ty = 0;
-    if (x1 > x0 && y1 > y0) { s = Math.max(.8, Math.min(3, (ax1 - ax0) / (x1 - x0), (ay1 - ay0) / (y1 - y0))); tx = (ax0 + ax1) / 2 - s * (x0 + x1) / 2; ty = (ay0 + ay1) / 2 - s * (y0 + y1) / 2; }
+    // Live camera: true scale, so the nodes stay fixed in the room as people walk around. Preview: auto-frame.
+    const live = window.PosterAR && PosterAR.mode && PosterAR.mode() === 'camera';
+    if (!live && x1 > x0 && y1 > y0) { s = Math.max(.8, Math.min(3, (ax1 - ax0) / (x1 - x0), (ay1 - ay0) / (y1 - y0))); tx = (ax0 + ax1) / 2 - s * (x0 + x1) / 2; ty = (ay0 + ay1) / 2 - s * (y0 + y1) / 2; }
     const a = reduce ? 1 : 1 - Math.exp(-dt / 450); zoom.s = lerp(zoom.s, s, a); zoom.tx = lerp(zoom.tx, tx, a); zoom.ty = lerp(zoom.ty, ty, a);
     const Z = new rt.T.Matrix4().set(zoom.s, 0, 0, 2 * zoom.tx / W + zoom.s - 1, 0, zoom.s, 0, 1 - zoom.s - 2 * zoom.ty / H, 0, 0, 1, 0, 0, 0, 0, 1);
     cam.projectionMatrix.premultiply(Z); cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
@@ -212,73 +223,102 @@ function createScene(api) {
 
   // ---------- per-frame state ----------
   function fallOf(id, mode, idx, p, ended) { const d = DEF[id]; if (mode !== 'red' || !d.censor) return 0; if (ended || idx > d.step) return 1; if (idx < d.step) return 0; return clamp((p - .3) / .45); }
-  function drawNode(n, mode, idx, p, ended, now, fall) {
-    const { d, g, c } = n, W = c.width, H = c.height, done = ended || idx > d.step, act = !ended && idx === d.step;
-    let key = mode + idx + (ended ? 'e' : '') + (fall > .5 ? 'f' : '') + (act ? Math.floor(now / 70) : '') + (ended && n.id === 'audio' ? Math.floor(now / 70) : '') + (frameReady ? 'r' : '');
-    if (n.id === 'prompt') key = mode + typed(mode, done ? 1 : act ? p : 0).length + (act ? Math.floor(now / 450) % 2 : '');
+  function widgetsOf(id, mode, idx, p, ended) {
+    const red = mode === 'red', done = ended || idx > DEF[id].step, act = !ended && idx === DEF[id].step;
+    switch (id) {
+      case 'face': return [['image', red ? 'classmate_selfie.jpg' : 'synthetic_face.png', 'combo']];
+      case 'safety': return [['block', 'real people, stunts', 'combo'], ['strength', 'strict', 'combo']];
+      case 'consent': return [['require_consent', 'true', 'toggle']];
+      case 'sampler': return [['seed', '898471028164125', 'num'], ['control_after_generate', 'randomize', 'combo'], ['steps', String(act ? Math.max(1, Math.round(ease(clamp(p / .85)) * 30)) : 30), 'num'], ['cfg', '5.0', 'num'], ['sampler_name', 'uni_pc', 'combo'], ['scheduler', 'simple', 'combo'], ['denoise', '1.00', 'num']];
+      case 'audio': return red ? [['speaker', 'classmate.wav', 'combo'], ['style', 'news anchor', 'combo']] : [['prompt', 'gentle guitar music', 'text'], ['duration', '10.0', 'num']];
+      case 'money': return red ? [['count', String(done ? 100 : act ? Math.round(ease(p) * 100) : 1), 'num'], ['ai_label', 'none', 'combo']] : [['credits', '52-PG02 + tools', 'text'], ['ai_disclosure', 'true', 'toggle']];
+      case 'water': return [['label', 'AI-generated', 'text'], ['watermark', 'invisible', 'combo']];
+      case 'out': return [['format', 'video/h264-mp4', 'combo'], ['filename_prefix', red ? 'viral_news' : '52-PG02', 'text']];
+      default: return [];
+    }
+  }
+  function drawNode(n, mode, idx, p, ended, now, fall, conn) {
+    const { d, g, c } = n, done = ended || idx > d.step, act = !ended && idx === d.step, red = mode === 'red', removed = fall > .5;
+    let key = mode + idx + (ended ? 'e' : '') + (removed ? 'f' : '') + (act ? Math.floor(now / 70) : '') + (ended && n.id === 'audio' ? Math.floor(now / 70) : '') + (frameReady ? 'r' : '') + conn;
+    if (n.id === 'prompt') key = mode + typed(mode, done ? 1 : act ? p : 0).length + (act ? Math.floor(now / 450) % 2 : '') + conn + idx;
     if (key === n.key || !g || !g.fillText) return; n.key = key;
-    g.clearRect(0, 0, W, H); rr(g, 4, 4, W - 8, H - 8, 22); g.fillStyle = 'rgba(14,19,26,.93)'; g.fill();
-    const head = Math.round(H * (d.censor ? .3 : .17)), red = mode === 'red', removed = fall > .5, hc = removed ? '#ff6b6b' : d.color;
-    g.save(); rr(g, 4, 4, W - 8, H - 8, 22); g.clip(); g.fillStyle = hc; g.globalAlpha = .9; g.fillRect(0, 0, W, head); g.restore(); g.globalAlpha = 1;
-    const titles = { prompt: 'CLIP Text Encode', face: 'Load Image', sampler: 'KSampler · Wan 2.2', audio: red ? 'Voice clone' : 'Audio · MusicGen-style', money: red ? 'Batch × 100' : 'Credits + AI disclosure', out: 'Video output' };
-    g.fillStyle = '#0d1117'; g.font = `800 ${Math.round(head * .46)}px ${FONT}`; g.fillText((d.censor ? '🛡 ' : '') + (d.title || titles[n.id]), 22, head * .66);
-    if (!d.censor) { g.font = `700 ${Math.round(head * .36)}px ${FONT}`; g.fillStyle = 'rgba(13,17,23,.6)'; g.textAlign = 'end'; g.fillText(d.kind, W - 22, head * .66); g.textAlign = 'start'; }
+    const W = d.w, H = d.hh; g.setTransform(TEX, 0, 0, TEX, 0, 0); g.clearRect(0, 0, W, H);
+    const [body, title] = PAL[removed ? 'red' : d.pal(mode)];
+    // body, title bar, collapse dot and title (ComfyUI / LiteGraph look)
+    rr(g, 1, 1, W - 2, H - 2, 8); g.fillStyle = body; g.fill();
+    g.save(); rr(g, 1, 1, W - 2, H - 2, 8); g.clip(); g.fillStyle = title; g.fillRect(0, 0, W, HEAD); g.restore();
+    g.fillStyle = removed ? '#ff6b6b' : '#8a8a8a'; g.beginPath(); g.arc(13, HEAD / 2, 4.5, 0, Math.PI * 2); g.fill();
+    g.font = `600 12.5px ${FONT}`; g.fillStyle = '#e6e6e6'; g.fillText(d.title(mode), 25, HEAD / 2 + 4.4);
+    if (act) { g.fillStyle = '#7ff0b0'; g.fillRect(3, HEAD - 2.5, (W - 6) * clamp(p), 2.5); } // executing progress, as ComfyUI shows it
+    // input sockets on the left, outputs on the right; filled when linked, hollow when not
+    const dot = (x, y, col, on) => { g.beginPath(); g.arc(x, y, 4.6, 0, Math.PI * 2); if (on) { g.fillStyle = col; g.fill(); } else { g.lineWidth = 1.6; g.strokeStyle = col; g.stroke(); } };
+    g.font = `500 10.5px ${FONT}`;
+    d.ins.forEach(([name, type], k) => { const y = slotY(k); dot(9, y, TYPE[type], conn.includes(n.id + 'i' + k)); g.fillStyle = '#b5b5b5'; g.textAlign = 'start'; g.fillText(name, 19, y + 3.6); });
+    d.outs.forEach(([name, type], k) => { const y = slotY(k); dot(W - 9, y, TYPE[type], conn.includes(n.id + 'o' + k)); g.fillStyle = '#b5b5b5'; g.textAlign = 'end'; g.fillText(name, W - 19, y + 3.6); });
+    g.textAlign = 'start';
+    let y = HEAD + 6 + Math.max(d.ins.length, d.outs.length) * ROW;
+    for (const [label, value, kind] of widgetsOf(n.id, mode, idx, p, ended)) {
+      rr(g, 7, y, W - 14, 18, 9); g.fillStyle = '#222'; g.fill();
+      g.font = `500 10px ${FONT}`; g.fillStyle = '#9a9a9a'; g.fillText(label, kind === 'num' ? 19 : 15, y + 12.4);
+      g.fillStyle = red && /classmate|viral|none|news anchor/.test(value) ? '#ff9c9c' : '#e2e2e2'; g.textAlign = 'end'; g.fillText(value + (kind === 'combo' ? ' ▾' : ''), W - (kind === 'num' ? 19 : 15), y + 12.4); g.textAlign = 'start';
+      if (kind === 'num') { g.fillStyle = '#777'; g.fillText('◂', 10, y + 12.4); g.textAlign = 'end'; g.fillText('▸', W - 10, y + 12.4); g.textAlign = 'start'; }
+      y += WROW;
+    }
+    const cx = 8, cy = y + 2, cw = W - 16, ch = H - cy - 8;
     if (n.id === 'prompt') {
-      const s = typed(mode, done ? 1 : act ? p : 0); g.font = `600 ${Math.round(W * .05)}px ${FONT}`;
-      const end = wrapText(g, s + (act && Math.floor(now / 450) % 2 ? '▍' : ''), 22, head + 42, W - 44, W * .066, w => red && BAD.test(w) ? '#ff8080' : '#fff');
-      if (red && s.length > 30) { g.fillStyle = '#ff6b6b'; g.font = `800 ${Math.round(W * .042)}px ${FONT}`; g.fillText('⚠ harmful words', 22, Math.min(H - 16, end + 8)); }
+      rr(g, cx, cy, cw, ch, 6); g.fillStyle = '#222'; g.fill();
+      const s = typed(mode, done ? 1 : act ? p : 0); g.font = `500 11.5px ${FONT}`;
+      const end = wrapText(g, s + (act && Math.floor(now / 450) % 2 ? '▍' : ''), cx + 8, cy + 17, cw - 16, 15, w => red && BAD.test(w) ? '#ff8a8a' : '#e6e6e6');
+      if (red && s.length > 30) { g.fillStyle = '#ff6b6b'; g.font = `800 10.5px ${FONT}`; g.fillText('⚠ harmful words', cx + 8, Math.min(cy + ch - 7, end + 3)); }
     } else if (n.id === 'face') {
-      const sz = H - head - 70, show = done ? 1 : act ? clamp(p / .3) : .25; g.save(); g.globalAlpha = show; g.drawImage(face, (W - sz) / 2, head + 12, sz, sz); g.restore();
-      g.font = `700 ${Math.round(W * .055)}px ${FONT}`; g.fillStyle = red ? '#ff8080' : '#9fe8b5'; g.textAlign = 'center';
-      g.fillText(red ? 'classmate_selfie.jpg' : 'synthetic_face.png', W / 2, H - 26); g.textAlign = 'start';
+      const sz = Math.min(cw, ch - 16), show = done ? 1 : act ? clamp(p / .3) : .25; g.save(); g.globalAlpha = show; g.drawImage(face, (W - sz) / 2, cy, sz, sz); g.restore();
+      g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.textAlign = 'center'; g.fillText(red ? '⚠ taken without consent' : 'synthetic, not a real person', W / 2, H - 10); g.textAlign = 'start';
     } else if (d.censor) {
-      g.font = `800 ${Math.round(H * .17)}px ${FONT}`; g.textAlign = 'center';
       const msg = removed ? '✕ UNPLUGGED' : red && act && p > .15 ? 'disconnecting…' : mode === 'blue' && act && p < .45 ? 'checking…' : mode === 'blue' && (done || act) ? (n.id === 'safety' ? '✓ stunt removed' : n.id === 'consent' ? '✓ consent given' : '✓ stamped') : 'ready';
-      g.fillStyle = removed ? '#ff6b6b' : msg.startsWith('✓') ? '#7ff0b0' : '#fff'; g.fillText(msg, W / 2, head + (H - head) * .62); g.textAlign = 'start';
+      g.font = `800 17px ${FONT}`; g.textAlign = 'center'; g.fillStyle = removed ? '#ff6b6b' : msg.startsWith('✓') ? '#7ff0b0' : '#e6e6e6'; g.fillText(msg, W / 2, cy + ch / 2 + 6); g.textAlign = 'start';
     } else if (n.id === 'sampler' || n.id === 'out') {
-      const a = n.id === 'sampler' ? (done ? 1 : act ? ease(clamp(p / .85)) : 0) : (done ? 1 : act ? clamp((p - .3) / .4) : 0);
-      const x = 18, y = head + 14, w = W - 36, h = H - head - 62;
-      drawScene(g, x, y, w, h, Math.max(.04, a), red, red && a > .5);
-      g.font = `700 ${Math.round(W * .045)}px ${FONT}`; g.fillStyle = 'rgba(255,255,255,.75)';
-      if (n.id === 'sampler') g.fillText(act ? `denoise · step ${Math.max(1, Math.round(ease(clamp(p / .85)) * 30))} / 30` : done ? 'step 30 / 30' : 'waiting', x, H - 22);
-      else { g.fillStyle = red ? '#ff8080' : '#9fe8b5'; g.fillText(a <= 0 ? 'waiting' : red ? 'no label · no watermark' : 'AI-generated · watermarked', x, H - 22); if (!red && a > 0) { g.fillStyle = 'rgba(255,255,255,.85)'; g.font = `800 ${Math.round(W * .04)}px ${FONT}`; g.fillText('AI · 52-PG02', x + 10, y + 26); } }
+      const a = n.id === 'sampler' ? (done ? 1 : act ? ease(clamp(p / .85)) : 0) : (done ? 1 : act ? clamp((p - .3) / .4) : 0), foot = n.id === 'out' ? 16 : 0;
+      drawScene(g, cx, cy, cw, ch - foot, Math.max(.04, a), red, red && a > .5);
+      if (n.id === 'out') { g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.fillText(a <= 0 ? 'waiting' : red ? 'no label · no watermark' : 'AI-generated · watermarked', cx, H - 10);
+        if (!red && a > 0) { g.fillStyle = 'rgba(255,255,255,.88)'; g.font = `800 10px ${FONT}`; g.fillText('AI · 52-PG02', cx + 6, cy + 14); } }
     } else if (n.id === 'audio') {
-      const on = done || act, y0 = head + (H - head) * .46, amp = (H - head) * .26; g.strokeStyle = red ? '#ff8080' : d.color; g.lineWidth = 3; g.beginPath();
-      for (let i = 0; i <= 120; i++) { const x = 20 + i / 120 * (W - 40), ph = i / 8 + now / 260, v = on ? (red ? Math.sin(ph) * .5 + Math.sin(ph * 3.7) * .35 + ((Math.sin(i * 12.9898 + now / 90) * 43758.5) % 1) * .4 : Math.sin(ph) * Math.sin(i / 20 + 1) * .9) : 0; i ? g.lineTo(x, y0 - v * amp) : g.moveTo(x, y0 - v * amp); } g.stroke();
-      g.font = `700 ${Math.round(W * .05)}px ${FONT}`; g.fillStyle = red ? '#ff8080' : '#9fe8b5'; g.fillText(red ? 'cloned voice + AI anchor' : 'original guitar music', 20, H - 20);
+      const on = done || act, y0 = cy + ch / 2, amp = ch * .38; rr(g, cx, cy, cw, ch, 6); g.fillStyle = '#222'; g.fill(); g.strokeStyle = red ? '#ff8a8a' : TYPE.AUDIO; g.lineWidth = 1.6; g.beginPath();
+      for (let i = 0; i <= 120; i++) { const x = cx + 6 + i / 120 * (cw - 12), ph = i / 8 + now / 260, v = on ? (red ? Math.sin(ph) * .5 + Math.sin(ph * 3.7) * .35 + ((Math.sin(i * 12.9898 + now / 90) * 43758.5) % 1) * .4 : Math.sin(ph) * Math.sin(i / 20 + 1) * .9) : 0; i ? g.lineTo(x, y0 - v * amp) : g.moveTo(x, y0 - v * amp); } g.stroke();
     } else if (n.id === 'money') {
-      if (red) { const k = done ? 100 : act ? Math.round(ease(p) * 100) : 0; g.fillStyle = '#fff'; g.font = `800 ${Math.round(H * .26)}px ${FONT}`; g.fillText('× ' + k, 22, head + (H - head) * .6); g.font = `700 ${Math.round(W * .05)}px ${FONT}`; g.fillStyle = '#ff8080'; g.fillText('copies to farm views', 22, H - 20); }
-      else { g.font = `700 ${Math.round(W * .056)}px ${FONT}`; ['credits: team + tools', 'marked as AI-altered', 'platform rules followed'].forEach((s, i) => { const on = done || (act && p > .15 + i * .25); g.fillStyle = on ? '#9fe8b5' : 'rgba(255,255,255,.35)'; g.fillText((on ? '✓ ' : '○ ') + s, 22, head + 40 + i * (H - head - 34) / 3); }); }
+      if (red) { const k = done ? 100 : act ? Math.round(ease(p) * 100) : 1; g.fillStyle = '#fff'; g.font = `800 28px ${FONT}`; g.fillText('× ' + k, cx + 4, cy + ch / 2 + 8); g.font = `700 10.5px ${FONT}`; g.fillStyle = '#ff8a8a'; g.fillText('copies to farm views', cx + 4, H - 10); }
+      else { g.font = `700 10.5px ${FONT}`; ['credits: team + tools', 'marked as AI-altered', 'platform rules followed'].forEach((s, i) => { const on = done || (act && p > .15 + i * .25); g.fillStyle = on ? '#9fe8b5' : 'rgba(255,255,255,.35)'; g.fillText((on ? '✓ ' : '○ ') + s, cx + 4, cy + 13 + i * 15); }); }
     }
     n.tex.needsUpdate = true;
   }
-
   function update(si, p, now) {
     if (!R || disposed) return;
     const mode = api.mode(), ended = si >= STEPS.length, idx = Math.min(si, STEPS.length - 1), T = R.T, P = R.P, col = new T.Color(COLOR[mode]);
+    const fut2 = w => !ended && Math.max(DEF[w.a].step, DEF[w.b].step) > idx;
     const ps = updateCamera(R), dt = lastNow ? Math.min(100, now - lastNow) : 16; lastNow = now; canvas.style.opacity = ps ? '1' : '0'; if (!ps) return; frameView(R, ps, dt);
     R.frameLine.material.color.copy(col);
+    // which links are live: a link into a fallen module is cut; its bypass appears once the module is gone
+    const cutOf = l => [l.a, l.b].some(id => fallOf(id, mode, idx, p, ended) > .15), live = R.wires.filter(w => !cutOf(w)).concat(Object.entries(R.bypass).filter(([c]) => fallOf(c, mode, idx, p, ended) > .5).map(([, w]) => w));
+    const conn = live.map(w => w.a + 'o' + w.ai + ',' + w.b + 'i' + w.bi).join(',');
     for (const n of Object.values(R.nodes)) {
       const d = n.d, fall = fallOf(n.id, mode, idx, p, ended), act = !ended && ACTIVE[idx].includes(n.id), fut = !ended && d.step > idx;
-      drawNode(n, mode, idx, p, ended, now, fall);
+      drawNode(n, mode, idx, p, ended, now, fall, conn);
       // safety modules shake, unplug and fall onto the paper in Red mode
       const shake = mode === 'red' && d.censor && !ended && idx === d.step && p > .15 && p < .3 && !reduce ? Math.sin(now / 30) * .06 : 0;
       const ff = ease(fall), drop = fall * fall, side = n.id === 'consent' ? -1 : 1;
       n.grp.position.copy(P(d.x + ff * 90 * side, d.y + ff * 120, lerp(d.h, 9, drop)));
       n.grp.rotation.set(Math.sin(fall * Math.PI) * .9, Math.sin(fall * Math.PI) * .5 * side, shake + ff * .5 * side);
-      const s = act && !fall ? 1.06 + (reduce ? 0 : Math.sin(now / 300) * .015) : 1; n.grp.scale.setScalar(lerp(n.grp.scale.x, s, .2));
       const op = fut ? .35 : fall > .5 ? .55 : 1; n.front.opacity = op; n.side.opacity = op * .95;
-      n.edgeMat.color.set(fall > .5 ? COLOR.red : act ? COLOR[mode] : d.color); n.edgeMat.opacity = act ? 1 : .6;
+      n.edgeMat.color.set(fall > .5 ? COLOR.red : act ? COLOR[mode] : '#6b6b6b'); n.edgeMat.opacity = act ? 1 : .7;
       const z = n.grp.position.z; n.sh.position.copy(P(d.x + ff * 90 * side + z * .1, d.y + ff * 120 + z * .14, .5)); n.shMat.opacity = fut ? .2 : .5 * clamp(1 - z / 900) + .15;
       n.stem.visible = fall === 0; n.stemMat.opacity = fut ? .15 : .35;
     }
-    // wires: hide those into a fallen module; show the red bypass instead
-    const flows = new Set(FLOW[idx].map(([a, b]) => a + '>' + b));
-    for (const w of R.wires) { const cut = [w.a, w.b].some(id => fallOf(id, mode, idx, p, ended) > .15), on = flows.has(w.a + '>' + w.b) && !cut && !ended;
-      w.mesh.visible = !cut; w.mat.color.copy(on ? col : new T.Color(0xffffff)); w.mat.opacity = on ? .95 : .4;
-      w.dots.forEach((m, i) => { m.visible = on; if (on) m.position.copy(w.curve.getPointAt((now / 1300 + i / 3) % 1)); }); }
-    for (const [c, w] of Object.entries(R.bypass)) { const f = fallOf(c, mode, idx, p, ended), on = f > .5; w.mesh.visible = on;
-      w.dots.forEach((m, i) => { m.visible = on && (ended || idx === DEF[c].step); if (m.visible) { m.material.color.set(COLOR.red); m.position.copy(w.curve.getPointAt((now / 1000 + i / 3) % 1)); } }); }
+    // links: type-coloured as in ComfyUI; the step's links carry pulses; red bypass links replace fallen modules
+    const flows = new Set(FLOW[idx]);
+    for (const w of R.wires) { const cut = cutOf(w), on = flows.has(w.key) && !cut && !ended;
+      w.mesh.visible = !cut; w.mat.color.copy(w.color); w.mat.opacity = on ? 1 : fut2(w) ? .35 : .75;
+      w.dots.forEach((m, i) => { m.visible = on; if (on) { m.material.color.copy(col); m.position.copy(w.curve.getPointAt((now / 1300 + i / 3) % 1)); } }); }
+    for (const [c, w] of Object.entries(R.bypass)) { const on = fallOf(c, mode, idx, p, ended) > .5; w.mesh.visible = on;
+      w.dots.forEach((m, i) => { m.visible = on && (ended || idx >= DEF[c].step); if (m.visible) { m.material.color.set(COLOR.red); m.position.copy(w.curve.getPointAt((now / 1000 + i / 3) % 1)); } }); }
     // Red: copies stack up at step 05, then burst out and fly everywhere at step 06.
     const O = DEF.out, red = mode === 'red';
     if (ended && !endAt) endAt = now; if (!ended) endAt = 0;
@@ -287,12 +327,12 @@ function createScene(api) {
       if (burstT > 0) { const k = 1 - Math.exp(-burstT / 1.6), th = c.th + spin * burstT * c.w * .35, r = 60 + c.rad * 1100 * k;
         c.m.visible = true; c.m.position.copy(P(O.x + Math.cos(th) * r, O.y - 200 * k + Math.sin(th) * r * .8, O.h * (1 - k * .3) + c.z * 650 * k + spin * Math.sin(burstT * 1.3 + c.j) * 30));
         c.m.rotation.set(c.spin[0] * burstT * spin, c.spin[1] * burstT * spin, c.spin[2] * burstT * spin * .5); c.m.scale.setScalar(Math.min(1, burstT * 2));
-      } else if (c.j < stackN) { c.m.visible = true; c.m.position.copy(P(O.x + 190 + (c.j % 2) * 14, O.y - 40 - c.j * 6, O.h - 40 + c.j * 9)); c.m.rotation.set(0, 0, .08 * (c.j % 3 - 1)); c.m.scale.setScalar(.8); }
+      } else if (c.j < stackN) { c.m.visible = true; c.m.position.copy(P(O.x - 20 + (c.j % 2) * 14, O.y - 210 - c.j * 6, O.h - 40 + c.j * 9)); c.m.rotation.set(0, 0, .08 * (c.j % 3 - 1)); c.m.scale.setScalar(.8); }
       else c.m.visible = false; });
     if (frameReady && !R.copyFresh) { R.copyFresh = true; const g = R.copyCanvas.getContext('2d'); drawScene(g, 6, 6, 208, 128, 1, true, true); R.copyTex.needsUpdate = true; }
     // Blue: one credited, watermarked film is released and glides down onto the paper.
     const fp = mode === 'blue' ? (ended ? 1 : idx === 5 ? ease(clamp((p - .55) / .4)) : 0) : 0, fm = R.film;
-    fm.m.visible = fp > 0; if (fp > 0) { fm.m.position.copy(P(lerp(O.x, 1230, fp), lerp(O.y + 30, 1700, fp), lerp(O.h - 60, 6, fp))); fm.m.rotation.set(0, 0, lerp(0, -.12, fp));
+    fm.m.visible = fp > 0; if (fp > 0) { fm.m.position.copy(P(lerp(O.x, 1420, fp), lerp(O.y + 40, 1690, fp), lerp(O.h - 60, 6, fp))); fm.m.rotation.set(0, 0, lerp(0, -.12, fp));
       if (fm.key !== String(frameReady)) { fm.key = String(frameReady); fm.g.fillStyle = '#10151c'; fm.g.fillRect(0, 0, 300, 190); drawScene(fm.g, 8, 8, 284, 140, 1, false, false); fm.g.fillStyle = '#9fe8b5'; fm.g.font = `700 15px ${FONT}`; fm.g.fillText('AI-generated · credited · watermarked', 12, 176); fm.tex.needsUpdate = true; } }
     R.renderer.render(R.scene, R.camera);
   }

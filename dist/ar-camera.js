@@ -160,6 +160,8 @@ $('close-ar-sheet').addEventListener('click', () => sheet.hidden = true);
 window.PosterAR = {
   onRender: f => renderHooks.push(f), onStop: f => stopHooks.push(f), stop,
   // Raw pose for 3D rendering: homography h (poster 0..1 -> video 0..1), the video's drawn rectangle and the stage size.
+  // 'camera' for a live camera, 'preview' for the poster image.
+  mode: () => mode,
   pose3d() { if (!pose || !source || plane.hidden) return null; const v = viewport(), box = stage.getBoundingClientRect(); return { h: pose.slice(0, 8), v, width: box.width, height: box.height }; },
   toScreen(x, y) { if (!pose || !source || plane.hidden) return null; const v = viewport(), p = PosterTracking.project(pose, x / PosterTracking.width, y / PosterTracking.height); return { x: v.left + p.x * v.width, y: v.top + p.y * v.height }; }
 };
