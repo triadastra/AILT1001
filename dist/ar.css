@@ -195,3 +195,43 @@
 #scanner.net-open .ar-xp-dots{margin:7px 0 4px}
 #scanner.net-open .ar-xp-ctrl .ar-icon{width:40px;height:40px}
 #scanner .ar-net svg{margin-bottom:calc(var(--card-h,200px) + max(10px,env(safe-area-inset-bottom)))}
+
+
+/* ---------- Blue / Red mode: the same workflow used well or harmfully (ar-cases.js) ---------- */
+#scanner .ar-case{top:866px;padding-right:34px}
+.ar-case[data-mode=blue]{left:600px;border-color:#6cb6ff}
+.ar-case[data-mode=red]{left:1000px;border-color:#ff6b6b}
+#scanner .ar-case[data-mode=blue] svg{background:#6cb6ff;fill:#08203a}
+#scanner .ar-case[data-mode=red] svg{background:#ff6b6b;fill:#3a0808}
+#scanner[data-case=blue] #ar-dim path{fill:rgba(4,14,34,.86)}
+#scanner[data-case=red] #ar-dim path{fill:rgba(34,4,6,.86)}
+#scanner[data-case] .ar-net{transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .45s ease,box-shadow .4s ease}
+#scanner[data-case=blue] .ar-net{box-shadow:inset 0 0 120px rgba(108,182,255,.18)}
+#scanner[data-case=red] .ar-net{box-shadow:inset 0 0 120px rgba(255,107,107,.2)}
+.ar-xp-phase[data-phase=blue]{background:#6cb6ff}
+.ar-xp-phase[data-phase=red]{background:#ff6b6b}
+.ar-mode{display:flex;gap:4px;padding:3px;margin-top:4px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25)}
+.ar-mode[hidden]{display:none}
+.ar-mode button{min-height:36px;padding:6px 14px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.75);font:700 13px/1 'DM Sans',system-ui,sans-serif;cursor:pointer}
+.ar-mode button[data-mode=blue][aria-pressed=true]{background:#6cb6ff;color:#08203a}
+.ar-mode button[data-mode=red][aria-pressed=true]{background:#ff6b6b;color:#3a0808}
+.ar-mode button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.ar-net .cs-ribbon{fill-opacity:.14;stroke:rgba(255,255,255,.35);stroke-width:1}
+.ar-net .cs-hole{fill:rgba(255,255,255,.28)}
+.ar-net .cs-rung{fill:none;stroke:rgba(255,255,255,.3);stroke-width:1.2;stroke-dasharray:3 4}
+.ar-net .cs-rung.act{stroke:#fff;stroke-width:2;stroke-dasharray:none}
+.ar-net .cs-st{opacity:.32;transition:opacity .35s ease}
+.ar-net .cs-st.on{opacity:.75}
+.ar-net .cs-st.on.act{opacity:1}
+.ar-net .cs-st.act:not(.on){opacity:.55}
+.ar-net .cs-face{fill:rgba(12,16,22,.78);stroke-width:1.2}
+.ar-net .cs-st.act .cs-face{fill:rgba(255,255,255,.14);stroke-width:2.4;filter:drop-shadow(0 0 8px var(--accent))}
+.ar-net .cs-copy polygon{fill-opacity:.7;stroke:#fff;stroke-opacity:.4}
+.ar-net .cs-ringp{fill:none;stroke-width:2.4;filter:drop-shadow(0 0 6px var(--accent))}
+.ar-net .cs-box{opacity:.45;transition:opacity .3s ease}
+.ar-net .cs-box.on{opacity:1}
+.ar-net .cs-boxr{fill:rgba(255,255,255,.06);stroke-width:1.2}
+.ar-net .cs-box.on .cs-boxr{fill:rgba(255,255,255,.11);stroke-width:2.2}
+.ar-net .cs-tipr{fill:rgba(255,255,255,.07);stroke:rgba(255,255,255,.3)}
+#scanner .ar-mode{flex-basis:auto}
+#scanner .ar-mode button{font-size:13px;white-space:nowrap;padding:6px 12px}

@@ -44,3 +44,7 @@ Camera frames are processed on the device. Preserve that behaviour when adding f
 5. Commit and push; then use the deployment guide to publish.
 
 There is no web-based admin editor. You can edit files with GitHub's pencil button, but then pull those changes on your Mac before testing and deploying.
+
+## Blue / Red workflow mode (AR)
+
+`dist/ar-cases.js` holds the **Blue · good use** and **Red · harmful use** walkthrough: the same six workflow steps run twice, as two near-identical 3D tracks. Each entry in `STEPS` has a `blue` and a `red` side (`tag` on the 3D station, `short` for the comparison box, `text` for the caption card) and a shared `tip` ("What changed"). Edit those strings to change the wording; keep citation numbers matched to `references.html`. The two buttons sit on the printed workflow (`.ar-case` in `dist/poster.html`, positioned in `dist/ar.css`), and the Blue ⇄ Red switch in the walkthrough header keeps the current step.
