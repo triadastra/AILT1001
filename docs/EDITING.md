@@ -4,13 +4,9 @@ Run `npm run dev` and keep http://localhost:5173 open while editing. Vite refres
 
 ## Citations front page
 
-The front page, `dist/index.html`, shows only the numbered citations. Each card is one `<li class="cite" id="ref-N">` with:
+The front page, `dist/index.html`, is deliberately plain: a heading, one **Open the AR poster** button, then the numbered citations in printed order. There are no animations, images or scripts. Each entry is one `<li class="cite" id="ref-N">` with the citation, a "Used for" line and an **Open source** link.
 
-- an animated **stage**: a real image cropped from the poster (`dist/assets/cite/`), the Wan clip, or a small CSS concept animation (`c-*` classes in `dist/citations.css`);
-- three summary lines in `<ol class="beats">`, which play in turn (edit the text directly; keep three lines);
-- the citation, the "On the poster" note, the visual credit, and an **Open original source** link.
-
-Keep each card's citation text and link the same as `dist/references.json`; `npm test` checks this. Animations pause off-screen, stop for visitors who choose reduced motion, and have a **Pause animations** button that shows every summary line as plain text.
+Keep each entry's title, authors and link the same as `dist/references.json`; `npm test` checks this, and that the page has exactly one AR button and stays script-free. The button links to `poster.html?ar=1`, which opens the AR view straight away.
 
 ## Wording and activities
 
@@ -54,3 +50,4 @@ There is no web-based admin editor. You can edit files with GitHub's pencil butt
 - With a live camera the nodes stay at true scale, fixed in mid-air above the poster, so people can walk around them. Preview mode auto-frames the workflow instead.
 - 3D uses three.js (`dist/vendor/three.module.min.js`, MIT, `three-LICENSE.txt`), loaded only when Blue or Red is pressed. Without WebGL the step captions still work.
 - The Blue ⇄ Red switch on the caption card keeps the current step.
+- Animation and labels (all in `update` in `dist/ar-cases.js`): nodes rise out of the paper in turn and hover; links draw themselves in and carry a pulse of energy; unplugged modules spark, drop and bounce while their links whip back; passed checks send out a green ring. Three floating labels carry the message: the callout over each step's node (`SAY`), the **Safeguards n/3** scoreboard, and the result card at the end ("1 honest film" / "100 fake copies"). Visitors who ask for reduced motion get the same content without the movement.
