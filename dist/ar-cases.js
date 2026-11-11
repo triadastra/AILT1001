@@ -152,6 +152,10 @@ function createScene(api) {
 
     // glowing outline of the printed workflow, on the paper
     const frameLine = new T.LineLoop(keep(new T.BufferGeometry().setFromPoints([P(48, 900, 1), P(1640, 900, 1), P(1640, 1745, 1), P(48, 1745, 1)])), keep(new T.LineBasicMaterial({ color: COLOR.blue, transparent: true, opacity: .7 }))); root.add(frameLine);
+    // a dark ComfyUI-style canvas with a dot grid, just above the paper, so the nodes read clearly
+    const gridTex = keep(new T.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = 1024; c.height = 544; const g = c.getContext('2d'); g.fillStyle = 'rgba(16,18,22,.9)'; g.fillRect(0, 0, 1024, 544); g.fillStyle = 'rgba(255,255,255,.16)'; for (let y = 16; y < 544; y += 32) for (let x = 16; x < 1024; x += 32) g.fillRect(x - 1, y - 1, 2.4, 2.4); return c; })()));
+    const grid = new T.Mesh(keep(new T.PlaneGeometry(1592, 845)), keep(new T.MeshBasicMaterial({ map: gridTex, transparent: true, opacity: 0, depthWrite: false }))); grid.position.copy(P(844, 1322.5, 1.5)); root.add(grid);
+    const glowTex = keep(new T.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 4, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.45, 'rgba(255,255,255,.28)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return c; })()));
 
     const nodes = {};
     for (const [id, d] of Object.entries(DEF)) {
@@ -160,19 +164,22 @@ function createScene(api) {
       const side = keep(new T.MeshStandardMaterial({ color: 0x1a2230, metalness: .35, roughness: .4, transparent: true })), front = keep(new T.MeshBasicMaterial({ map: tex, transparent: true }));
       const geo = keep(new T.BoxGeometry(d.w, d.hh, 16)), box = new T.Mesh(geo, [side, side, side, side, front, side]);
       const edgeMat = keep(new T.LineBasicMaterial({ color: 0x555555, transparent: true })), edges = new T.LineSegments(keep(new T.EdgesGeometry(geo)), edgeMat);
-      const grp = new T.Group(); grp.add(box, edges); grp.position.copy(P(d.x, d.y, d.h)); root.add(grp);
+      const haloMat = keep(new T.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending })), halo = new T.Mesh(keep(new T.PlaneGeometry(d.w * 1.9, d.hh * 1.9)), haloMat); halo.position.z = -12;
+      const grp = new T.Group(); grp.add(halo, box, edges); grp.position.copy(P(d.x, d.y, d.h)); root.add(grp);
       const shMat = keep(new T.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: .55 })), sh = new T.Mesh(keep(new T.PlaneGeometry(d.w * 1.2, d.hh * 1.1)), shMat); root.add(sh);
       const stemMat = keep(new T.LineDashedMaterial({ color: 0xffffff, dashSize: 10, gapSize: 10, transparent: true, opacity: .35 })), stem = new T.Line(keep(new T.BufferGeometry().setFromPoints([P(d.x, d.y, 0), P(d.x, d.y, d.h - 8)])), stemMat); stem.computeLineDistances(); root.add(stem);
-      nodes[id] = { id, d, c, g: c.getContext('2d'), tex, side, front, edgeMat, grp, sh, shMat, stem, stemMat, key: '' };
+      nodes[id] = { id, d, c, g: c.getContext('2d'), tex, side, front, edgeMat, haloMat, grp, sh, shMat, stem, stemMat, key: '', i: Object.keys(nodes).length, prevFall: 0, passKey: '' };
     }
     // links from output socket to input socket, as tubes with ComfyUI's horizontal bezier tangents,
     // plus red bypass links used when a safety module drops out
     const sock = (id, out, k) => { const d = DEF[id]; return P(d.x + (out ? 1 : -1) * (d.w / 2 - 9), d.y - d.hh / 2 + slotY(k), d.h + 8.5); };
     function link([a, ai, b, bi], color) { const pa = sock(a, true, ai), pb = sock(b, false, bi), k = Math.max(70, Math.abs(pb.x - pa.x) * .5), lift = new T.Vector3(0, 0, 18);
       const curve = new T.CubicBezierCurve3(pa, pa.clone().add(new T.Vector3(k, 0, 0)).add(lift), pb.clone().add(new T.Vector3(-k, 0, 0)).add(lift), pb);
-      const mat = keep(new T.MeshBasicMaterial({ color, transparent: true, opacity: .8 })), mesh = new T.Mesh(keep(new T.TubeGeometry(curve, 48, 3.2, 8, false)), mat); root.add(mesh);
-      const dots = Array.from({ length: 3 }, () => { const m = new T.Mesh(keep(new T.SphereGeometry(7, 12, 10)), keep(new T.MeshBasicMaterial({ color: 0xffffff, transparent: true }))); root.add(m); return m; });
-      return { a, b, ai, bi, key: a + '>' + b, curve, mesh, mat, dots, color: new T.Color(color) }; }
+      const mat = keep(new T.MeshBasicMaterial({ color, transparent: true, opacity: .8 })), mesh = new T.Mesh(keep(new T.TubeGeometry(curve, SEG, 3.2, 8, false)), mat); root.add(mesh);
+      // a brighter, wider tube of which only a moving window is drawn: energy running along the link
+      const flowMat = keep(new T.MeshBasicMaterial({ color, transparent: true, opacity: .9, depthWrite: false, blending: T.AdditiveBlending })), flow = new T.Mesh(keep(new T.TubeGeometry(curve, SEG, 7.5, 8, false)), flowMat); flow.visible = false; root.add(flow);
+      return { a, b, ai, bi, key: a + '>' + b, curve, mesh, mat, flow, flowMat, color: new T.Color(color), i: linkCount++ }; }
+    const SEG = 48, IDX = 48; let linkCount = 0; // indices per tube segment (8 radial quads x 6)
     const wires = LINKS.map(l => link(l, TYPE[DEF[l[0]].outs[l[1]][1]])), bypass = {}; for (const [c, l] of Object.entries(BYPASS)) bypass[c] = link(l, 0xff6b6b);
     // the mass-produced copies (red) and the single released film (blue)
     const copyGeo = keep(new T.BoxGeometry(150, 96, 6)), copySide = keep(new T.MeshStandardMaterial({ color: 0x2a1418, transparent: true })), copyFronts = HEADLINES.map((_, v) => { const c = document.createElement('canvas'); c.width = 330; c.height = 210; const g = c.getContext('2d'); g.fillStyle = '#10151c'; g.fillRect(0, 0, 330, 210); drawScene(g, 6, 6, 318, 198, 1, true, true, v); const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace; return keep(new T.MeshBasicMaterial({ map: tex, transparent: true })); });
@@ -181,7 +188,17 @@ function createScene(api) {
       return { m, j, th: rand() * Math.PI * 2, rad: .35 + rand() * .9, z: .2 + rand() * 1.2, w: (rand() - .5) * .9, spin: [(rand() - .5) * 3, (rand() - .5) * 3, (rand() - .5) * 2] }; });
     const film = (() => { const c = document.createElement('canvas'); c.width = 300; c.height = 190; const g = c.getContext('2d'); const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace;
       const m = new T.Mesh(keep(new T.BoxGeometry(240, 152, 6)), [copySide, copySide, copySide, copySide, keep(new T.MeshBasicMaterial({ map: tex, transparent: true })), copySide]); m.visible = false; root.add(m); return { c, g, tex, m, key: '' }; })();
-    return { T, renderer, scene, camera, root, P, nodes, wires, bypass, copies, film, frameLine, disposables };
+    // sparks (when a module is unplugged, when the copies burst out) and expanding rings (impacts, passed checks)
+    const SP = 140, spPos = new Float32Array(SP * 3).fill(1e6), spCol = new Float32Array(SP * 3), spGeo = keep(new T.BufferGeometry()); spGeo.setAttribute('position', new T.BufferAttribute(spPos, 3)); spGeo.setAttribute('color', new T.BufferAttribute(spCol, 3));
+    const sparks = new T.Points(spGeo, keep(new T.PointsMaterial({ size: 26, map: glowTex, vertexColors: true, transparent: true, depthWrite: false, blending: T.AdditiveBlending }))); sparks.frustumCulled = false; root.add(sparks);
+    const parts = Array.from({ length: SP }, () => ({ life: 0, v: new T.Vector3(), p: new T.Vector3() })); let spNext = 0;
+    const emit = (pos, n, color, speed = 420) => { const c = new T.Color(color); for (let k = 0; k < n; k++) { const q = parts[spNext = (spNext + 1) % SP], a = Math.random() * Math.PI * 2, e = Math.random(); q.p.copy(pos); q.v.set(Math.cos(a) * speed * (.3 + e), Math.sin(a) * speed * (.3 + e), speed * (.2 + Math.random())); q.life = q.max = .5 + Math.random() * .6; q.c = c; } };
+    const ringGeo = keep(new T.RingGeometry(.9, 1, 56)), rings = Array.from({ length: 6 }, () => { const m = new T.Mesh(ringGeo, keep(new T.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending }))); m.visible = false; root.add(m); return { m, t: 9 }; }); let ringNext = 0;
+    const ring = (pos, color, size, dur = .7) => { const r = rings[ringNext = (ringNext + 1) % rings.length]; r.m.position.copy(pos); r.m.material.color.set(color); r.t = 0; r.size = size; r.dur = dur; r.m.visible = true; };
+    // floating labels: a callout over the step's node, a safeguards scoreboard, and a result card at the end
+    const label = (w, h, pos, order) => { const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2; const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace; const m = new T.Mesh(keep(new T.PlaneGeometry(w, h)), keep(new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }))); m.renderOrder = order; m.position.copy(pos); m.visible = false; root.add(m); return { c, g: c.getContext('2d'), tex, m, w, h, key: '', pop: 0 }; };
+    const callout = label(340, 64, P(0, 0, 0), 20), score = label(560, 58, P(844, 838, 150), 19), result = label(760, 250, P(844, 1300, 470), 21);
+    return { T, renderer, scene, camera, root, P, nodes, wires, bypass, copies, film, frameLine, disposables, grid, emit, ring, parts, spPos, spCol, spGeo, rings, callout, score, result, t0: 0, lastMode: null, switchAt: -1e9, burstKey: '' };
   }
 
   // ---------- pose: homography -> camera ----------
@@ -292,6 +309,7 @@ function createScene(api) {
       g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.textAlign = 'center'; g.fillText(red ? '⚠ taken without consent' : 'synthetic, not a real person', W / 2, H - 10); g.textAlign = 'start';
     } else if (d.censor) {
       const msg = removed ? '✕ UNPLUGGED' : red && act && p > .15 ? 'disconnecting…' : mode === 'blue' && act && p < .45 ? 'checking…' : mode === 'blue' && (done || act) ? (n.id === 'safety' ? '✓ stunt removed' : n.id === 'consent' ? '✓ consent given' : '✓ stamped') : 'ready';
+      if (msg === 'checking…') { const sx = cx + ((now / 6) % (cw + 40)) - 40, gr = g.createLinearGradient(sx, 0, sx + 40, 0); gr.addColorStop(0, 'rgba(127,240,176,0)'); gr.addColorStop(.5, 'rgba(127,240,176,.55)'); gr.addColorStop(1, 'rgba(127,240,176,0)'); g.fillStyle = gr; g.fillRect(cx, cy, cw, ch); }
       g.font = `800 17px ${FONT}`; g.textAlign = 'center'; g.fillStyle = removed ? '#ff6b6b' : msg.startsWith('✓') ? '#7ff0b0' : '#e6e6e6'; g.fillText(msg, W / 2, cy + ch / 2 + 6); g.textAlign = 'start';
     } else if (n.id === 'sampler' || n.id === 'out') {
       const a = n.id === 'sampler' ? (done ? 1 : act ? ease(clamp(p / .85)) : 0) : (done ? 1 : act ? clamp((p - .3) / .4) : 0), foot = n.id === 'out' ? 16 : 0;
@@ -317,44 +335,89 @@ function createScene(api) {
     // which links are live: a link into a fallen module is cut; its bypass appears once the module is gone
     const cutOf = l => [l.a, l.b].some(id => fallOf(id, mode, idx, p, ended) > .15), live = R.wires.filter(w => !cutOf(w)).concat(Object.entries(R.bypass).filter(([c]) => fallOf(c, mode, idx, p, ended) > .5).map(([, w]) => w));
     const conn = live.map(w => w.a + 'o' + w.ai + ',' + w.b + 'i' + w.bi).join(',');
+    const sec = dt / 1000, back = t => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
+    const bounce = t => { const n = 7.5625, d = 2.75; return t < 1 / d ? n * t * t : t < 2 / d ? n * (t -= 1.5 / d) * t + .75 : t < 2.5 / d ? n * (t -= 2.25 / d) * t + .9375 : n * (t -= 2.625 / d) * t + .984375; };
+    if (!R.t0) R.t0 = now; const intro = reduce ? 9 : (now - R.t0) / 1000;
+    if (R.lastMode !== mode) { if (R.lastMode) R.switchAt = now; R.lastMode = mode; }
+    R.grid.material.opacity = lerp(R.grid.material.opacity, .62, 1 - Math.exp(-dt / 400));
     for (const n of Object.values(R.nodes)) {
       const d = n.d, fall = fallOf(n.id, mode, idx, p, ended), act = !ended && ACTIVE[idx].includes(n.id), fut = !ended && d.step > idx;
       drawNode(n, mode, idx, p, ended, now, fall, conn);
-      // safety modules shake, unplug and fall onto the paper in Red mode
-      const shake = mode === 'red' && d.censor && !ended && idx === d.step && p > .15 && p < .3 && !reduce ? Math.sin(now / 30) * .06 : 0;
-      const ff = ease(fall), drop = fall * fall, side = n.id === 'consent' ? -1 : 1;
-      n.grp.position.copy(P(d.x + ff * 90 * side, d.y + ff * 120, lerp(d.h, 9, drop)));
-      n.grp.rotation.set(Math.sin(fall * Math.PI) * .9, Math.sin(fall * Math.PI) * .5 * side, shake + ff * .5 * side);
-      const op = fut ? .35 : fall > .5 ? .55 : 1; n.front.opacity = op; n.side.opacity = op * .95;
-      n.edgeMat.color.set(fall > .5 ? COLOR.red : act ? COLOR[mode] : '#6b6b6b'); n.edgeMat.opacity = act ? 1 : .7;
-      const z = n.grp.position.z; n.sh.position.copy(P(d.x + ff * 90 * side + z * .1, d.y + ff * 120 + z * .14, .5)); n.shMat.opacity = fut ? .2 : .5 * clamp(1 - z / 900) + .15;
-      n.stem.visible = fall === 0; n.stemMat.opacity = fut ? .15 : .35;
+      // entrance: each node rises out of the paper in turn; then it hovers gently
+      const rise = clamp((intro - n.i * .09) / .55), up = rise <= 0 ? 0 : back(rise), bob = reduce || fall ? 0 : Math.sin(now / 1400 + n.i * 1.7) * 5;
+      // switching Blue <-> Red sends a ripple across the graph
+      const sw = clamp((now - R.switchAt - d.x / 1640 * 260) / 380), pop = reduce ? 0 : Math.sin(sw * Math.PI) * .09;
+      // Red: a safety module shakes, is pulled out of its sockets, drops, bounces on the paper and settles
+      const side = n.id === 'consent' ? -1 : 1, shake = mode === 'red' && d.censor && !ended && idx === d.step && p > .12 && p < .3 && !reduce ? Math.sin(now / 28) * .07 : 0;
+      const u = clamp(fall / .2), b = fall <= .2 ? 0 : bounce(clamp((fall - .2) / .8)), tum = fall <= .2 ? 0 : Math.sin(clamp((fall - .2) / .55) * Math.PI);
+      const px = d.x + side * (22 * ease(u) + 95 * b), py = d.y + 135 * b, pz = lerp((d.h + 28 * ease(u)) * up + bob, 9, b);
+      n.grp.position.copy(P(px, py, pz)); n.grp.rotation.set(tum * 1.15, tum * .6 * side, shake + b * .5 * side);
+      n.grp.scale.setScalar(Math.max(.001, (rise <= 0 ? 0 : .35 + .65 * up) * (1 + pop) * (act && !fall ? 1.035 : 1)));
+      if (fall > 0 && n.prevFall === 0 && fall < .2) R.emit(P(d.x - d.w / 2, d.y - d.hh / 2 + slotY(0), d.h + 10), 16, '#ffd28a'), R.emit(P(d.x + d.w / 2, d.y - d.hh / 2 + slotY(0), d.h + 10), 16, '#ff6b6b');
+      if (fall >= .49 && n.prevFall < .49 && fall - n.prevFall < .2) { R.ring(P(px, py, 3), COLOR.red, 260); R.emit(P(px, py, 12), 22, '#ff8a6b', 300); }
+      n.prevFall = fall;
+      // Blue: when a check passes, a green ring pulses out from the module
+      const pk = mode + idx; if (mode === 'blue' && d.censor && !ended && idx === d.step && p >= .45 && n.passKey !== pk) { if (p < .6) { R.ring(P(d.x, d.y, d.h + 12), '#7ff0b0', 300, .9); R.emit(P(d.x, d.y, d.h + 14), 14, '#7ff0b0', 240); } n.passKey = pk; }
+      const op = (fut ? .4 : fall > .5 ? .6 : 1) * clamp(rise * 2); n.front.opacity = op; n.side.opacity = op * .95;
+      n.edgeMat.color.set(fall > .5 ? COLOR.red : act ? COLOR[mode] : '#6b6b6b'); n.edgeMat.opacity = (act ? 1 : .7) * clamp(rise * 2);
+      n.haloMat.color.set(fall > 0 ? COLOR.red : COLOR[mode]); n.haloMat.opacity = lerp(n.haloMat.opacity, act ? (fall > .5 ? .25 : .5 + (reduce ? 0 : Math.sin(now / 320) * .14)) : 0, 1 - Math.exp(-dt / 220));
+      n.sh.position.copy(P(px + pz * .1, py + pz * .14, 2.5)); n.shMat.opacity = (fut ? .25 : .5 * clamp(1 - pz / 900) + .2) * clamp(rise);
+      n.stem.visible = fall === 0 && rise >= 1; n.stemMat.opacity = fut ? .15 : .35;
     }
-    // links: type-coloured as in ComfyUI; the step's links carry pulses; red bypass links replace fallen modules
-    const flows = new Set(FLOW[idx]);
-    for (const w of R.wires) { const cut = cutOf(w), on = flows.has(w.key) && !cut && !ended;
-      w.mesh.visible = !cut; w.mat.color.copy(w.color); w.mat.opacity = on ? 1 : fut2(w) ? .35 : .75;
-      w.dots.forEach((m, i) => { m.visible = on; if (on) { m.material.color.copy(col); m.position.copy(w.curve.getPointAt((now / 1300 + i / 3) % 1)); } }); }
-    for (const [c, w] of Object.entries(R.bypass)) { const on = fallOf(c, mode, idx, p, ended) > .5; w.mesh.visible = on;
-      w.dots.forEach((m, i) => { m.visible = on && (ended || idx >= DEF[c].step); if (m.visible) { m.material.color.set(COLOR.red); m.position.copy(w.curve.getPointAt((now / 1000 + i / 3) % 1)); } }); }
-    // Red: copies stack up at step 05, then burst out and fly everywhere at step 06.
+    // links: type-coloured as in ComfyUI. They draw themselves in, the step's links carry a pulse of energy,
+    // links into an unplugged module whip back, and red bypass links grow across the gap.
+    const flows = new Set(FLOW[idx]), N = 48, IDX = 48, range = (mesh, a, b) => { const s0 = Math.round(clamp(a) * N), s1 = Math.round(clamp(b) * N); mesh.visible = s1 > s0; mesh.geometry.setDrawRange(s0 * IDX, (s1 - s0) * IDX); };
+    const pulse = (w, a, b, speed, on) => { if (!on || reduce && false) { w.flow.visible = false; return; } const c = ((now / speed + w.i * .17) % 1.3) - .15; range(w.flow, Math.max(a, c - .13), Math.min(b, c + .13)); };
+    for (const w of R.wires) {
+      const drawn = clamp((intro - 1 - w.i * .07) / .5), fa = fallOf(w.a, mode, idx, p, ended), fb = fallOf(w.b, mode, idx, p, ended), ra = clamp(fa / .18), rb = clamp(fb / .18);
+      const a = ra, b = Math.min(drawn, 1 - rb), on = (flows.has(w.key) || ended) && fa === 0 && fb === 0 && drawn >= 1;
+      range(w.mesh, a, b); w.mat.color.copy(w.color); w.mat.opacity = on ? 1 : fut2(w) ? .4 : .8; w.flowMat.color.copy(w.color); pulse(w, a, b, ended ? 1700 : 1000, on);
+    }
+    for (const [c, w] of Object.entries(R.bypass)) { const f = fallOf(c, mode, idx, p, ended), grow = clamp((f - .5) / .3); range(w.mesh, 0, grow); w.flowMat.color.set(COLOR.red); pulse(w, 0, grow, 800, grow >= 1 && (ended || idx >= DEF[c].step)); }
+    // sparks and rings
+    for (let k = 0; k < R.parts.length; k++) { const q = R.parts[k]; if (q.life > 0) { q.life -= sec; q.v.z -= 900 * sec; q.p.addScaledVector(q.v, sec); if (q.p.z < 2) { q.p.z = 2; q.v.z *= -.35; q.v.x *= .6; q.v.y *= .6; } const f = clamp(q.life / q.max); R.spPos[k * 3] = q.p.x; R.spPos[k * 3 + 1] = q.p.y; R.spPos[k * 3 + 2] = q.p.z; R.spCol[k * 3] = q.c.r * f; R.spCol[k * 3 + 1] = q.c.g * f; R.spCol[k * 3 + 2] = q.c.b * f; } else R.spPos[k * 3 + 2] = 1e6; }
+    R.spGeo.attributes.position.needsUpdate = true; R.spGeo.attributes.color.needsUpdate = true;
+    for (const r of R.rings) { if (!r.m.visible) continue; r.t += sec / r.dur; if (r.t >= 1) { r.m.visible = false; continue; } const e = 1 - (1 - r.t) ** 3; r.m.scale.setScalar(20 + r.size * e); r.m.material.opacity = (1 - r.t) * .9; }
+
+    // floating labels
+    const MAIN = ['prompt', 'face', 'sampler', 'audio', 'money', 'out'], SAY = { blue: ['✓ Reviewed by people', '✓ Consent given', '✓ Dangerous stunt blocked', '✓ Original music', '✓ Credited + disclosed', '✓ Labelled + watermarked'], red: ['⚠ Written to deceive', '⚠ No consent', '⚠ Safety filter removed', '⚠ Voice cloned', '⚠ ×100 content farm', '⚠ No label · goes viral'] };
+    const paint = (L, key, draw) => { if (L.key === key || !L.g || !L.g.fillText) return; L.key = key; L.g.setTransform(2, 0, 0, 2, 0, 0); L.g.clearRect(0, 0, L.w, L.h); draw(L.g, L.w, L.h); L.tex.needsUpdate = true; };
+    const co = R.callout, showCo = !ended && p > .5 && intro > 1.6, cd = DEF[MAIN[idx]];
+    paint(co, mode + idx, (g, w, h) => { rr(g, 2, 2, w - 4, h - 4, h / 2 - 2); g.fillStyle = COLOR[mode]; g.fill(); g.fillStyle = mode === 'blue' ? '#08203a' : '#3a0808'; g.font = `800 25px ${FONT}`; g.textAlign = 'center'; g.fillText(SAY[mode][idx], w / 2, h / 2 + 9); g.textAlign = 'start'; });
+    co.pop = lerp(co.pop, showCo ? 1 : 0, 1 - Math.exp(-dt / (showCo ? 140 : 90))); co.m.visible = co.pop > .02; co.m.scale.setScalar(Math.max(.001, showCo ? back(clamp(co.pop)) : co.pop)); co.m.material.opacity = clamp(co.pop * 1.5);
+    co.m.position.copy(P(clamp((cd.x - 230) / 1140) * 1140 + 230, cd.y - cd.hh / 2 - 52, cd.h + 70 + (reduce ? 0 : Math.sin(now / 500) * 6)));
+    const guards = ['consent', 'safety', 'water'].map(id => fallOf(id, mode, idx, p, ended) > .5), kept = guards.filter(x => !x).length, sc = R.score;
+    paint(sc, mode + guards.join(), (g, w, h) => { rr(g, 2, 2, w - 4, h - 4, 14); g.fillStyle = 'rgba(12,15,19,.92)'; g.fill(); g.lineWidth = 2; g.strokeStyle = COLOR[mode]; g.stroke(); g.font = `800 17px ${FONT}`; g.fillStyle = '#fff'; g.fillText(`SAFEGUARDS ${kept}/3`, 18, h / 2 + 6);
+      ['Consent', 'Safety filter', 'AI label'].forEach((t, k) => { const x = 190 + k * 122, lost = guards[k]; rr(g, x, 13, 114, h - 26, 9); g.fillStyle = lost ? '#5a2026' : '#1f4a34'; g.fill(); g.font = `700 14px ${FONT}`; g.fillStyle = lost ? '#ff9c9c' : '#9fe8b5'; g.fillText((lost ? '✕ ' : '✓ ') + t, x + 9, h / 2 + 5); }); });
+    sc.pop = lerp(sc.pop, intro > 1.4 ? 1 : 0, 1 - Math.exp(-dt / 200)); sc.m.visible = sc.pop > .02; sc.m.material.opacity = sc.pop; sc.m.scale.setScalar(.6 + .4 * sc.pop);
+    const rs = R.result;
+    paint(rs, mode, (g, w, h) => { const red = mode === 'red'; rr(g, 3, 3, w - 6, h - 6, 26); g.fillStyle = 'rgba(10,13,17,.94)'; g.fill(); g.lineWidth = 4; g.strokeStyle = COLOR[mode]; g.stroke();
+      g.fillStyle = COLOR[mode]; g.font = `800 20px ${FONT}`; g.fillText(red ? 'RED · HARMFUL USE' : 'BLUE · GOOD USE', 34, 46); g.fillStyle = '#fff'; g.font = `800 62px ${FONT}`; g.fillText(red ? '100 fake copies' : '1 honest film', 32, 118);
+      g.font = `700 23px ${FONT}`; g.fillStyle = red ? '#ff9c9c' : '#9fe8b5'; (red ? ['✕ 0 of 3 safeguards left', '✕ a real face, no consent', '✕ no label, no watermark'] : ['✓ 3 of 3 safeguards kept', '✓ consent, credits, disclosure', '✓ AI label + watermark']).forEach((t, k) => g.fillText(t, 34 + (k % 2) * 360, 164 + Math.floor(k / 2) * 34));
+      g.fillStyle = 'rgba(255,255,255,.7)'; g.font = `600 19px ${FONT}`; g.textAlign = 'end'; g.fillText('Same tools. Different choices.', w - 30, h - 24); g.textAlign = 'start'; });
+    rs.pop = lerp(rs.pop, ended ? 1 : 0, 1 - Math.exp(-dt / (ended ? 260 : 100))); rs.m.visible = rs.pop > .02; rs.m.material.opacity = clamp(rs.pop * 1.4); rs.m.scale.setScalar(Math.max(.001, ended ? back(clamp(rs.pop)) : rs.pop));
+
+    // Red: copies pile up beside the output at step 05, then are fired out one after another and drift everywhere.
     const O = DEF.out, red = mode === 'red';
     if (ended && !endAt) endAt = now; if (!ended) endAt = 0;
     const burstT = red ? (ended ? 8.6 * .7 + (now - endAt) / 1000 : idx === 5 ? (p - .3) * 8.6 : -1) : -1, stackN = red && idx === 4 && !ended ? Math.floor(ease(p) * 14) : 0, spin = reduce ? 0 : 1;
+    const bk = red && burstT > 0 ? mode + idx + ended : ''; if (bk && !R.burstKey && burstT < .5) { R.emit(P(O.x, O.y, O.h + 20), 50, '#ff6b6b', 620); R.ring(P(O.x, O.y, O.h), COLOR.red, 520, 1); api.dialog.classList.remove('ar-burst'); void api.dialog.offsetWidth; api.dialog.classList.add('ar-burst'); } R.burstKey = bk;
     R.copies.forEach(c => {
-      if (burstT > 0) { const k = 1 - Math.exp(-burstT / 1.6), th = c.th + spin * burstT * c.w * .35, r = 60 + c.rad * 1100 * k;
-        c.m.visible = true; c.m.position.copy(P(O.x + Math.cos(th) * r, O.y - 200 * k + Math.sin(th) * r * .8, O.h * (1 - k * .3) + c.z * 650 * k + spin * Math.sin(burstT * 1.3 + c.j) * 30));
-        c.m.rotation.set(c.spin[0] * burstT * spin, c.spin[1] * burstT * spin, c.spin[2] * burstT * spin * .5); c.m.scale.setScalar(Math.min(1, burstT * 2));
-      } else if (c.j < stackN) { c.m.visible = true; c.m.position.copy(P(O.x - 20 + (c.j % 2) * 14, O.y - 210 - c.j * 6, O.h - 40 + c.j * 9)); c.m.rotation.set(0, 0, .08 * (c.j % 3 - 1)); c.m.scale.setScalar(.8); }
+      const t = burstT - c.j * .045;
+      if (burstT > 0 && t > 0) { const k = 1 - Math.exp(-t / 1.3), th = c.th + spin * t * c.w * .3, r = 40 + c.rad * 1150 * k;
+        c.m.visible = true; c.m.position.copy(P(O.x - 260 * k + Math.cos(th) * r, O.y + Math.sin(th) * r * .8, O.h + 30 + c.z * 620 * k + spin * Math.sin(t * 1.3 + c.j) * 34));
+        c.m.rotation.set(c.spin[0] * t * spin * .8, c.spin[1] * t * spin * .8, c.spin[2] * t * spin * .4); c.m.scale.setScalar(Math.min(1, t * 5) * (1 + Math.max(0, .35 - t) * 1.2));
+      } else if (c.j < stackN) { const born = clamp(ease(p) * 14 - c.j); c.m.visible = true; c.m.position.copy(P(O.x - 20 + (c.j % 2) * 14, O.y - 215 - c.j * 6, O.h - 40 + c.j * 9 + (1 - born) * 60)); c.m.rotation.set(0, 0, .08 * (c.j % 3 - 1)); c.m.scale.setScalar(.8 * Math.max(.05, back(born))); }
       else c.m.visible = false; });
-    // Blue: one credited, watermarked film is released and glides down onto the paper.
+    // Blue: the watermark is stamped (a ring), and one credited film glides down onto the paper.
     const fp = mode === 'blue' ? (ended ? 1 : idx === 5 ? ease(clamp((p - .55) / .4)) : 0) : 0, fm = R.film;
-    fm.m.visible = fp > 0; if (fp > 0) { fm.m.position.copy(P(lerp(O.x, 1420, fp), lerp(O.y + 40, 1690, fp), lerp(O.h - 60, 6, fp))); fm.m.rotation.set(0, 0, lerp(0, -.12, fp));
+    if (fp > 0 && !fm.was && fp < .3) { R.ring(P(O.x, O.y, O.h + 12), COLOR.blue, 380, .9); R.emit(P(O.x, O.y, O.h + 14), 18, '#bfe0ff', 260); } fm.was = fp > 0;
+    fm.m.visible = fp > 0; if (fp > 0) { fm.m.position.copy(P(lerp(O.x, 1420, fp), lerp(O.y + 40, 1690, fp), lerp(O.h - 60, 6, fp) + Math.sin(fp * Math.PI) * 120)); fm.m.rotation.set(Math.sin(fp * Math.PI) * .5, 0, lerp(0, -.12, fp)); fm.m.scale.setScalar(Math.min(1, fp * 4));
       if (fm.key !== String(frameReady)) { fm.key = String(frameReady); fm.g.fillStyle = '#10151c'; fm.g.fillRect(0, 0, 300, 190); drawScene(fm.g, 8, 8, 284, 140, 1, false, false); fm.g.fillStyle = '#9fe8b5'; fm.g.font = `700 15px ${FONT}`; fm.g.fillText('AI-generated · credited · watermarked', 12, 176); fm.tex.needsUpdate = true; } }
     R.renderer.render(R.scene, R.camera);
   }
   function dispose() {
-    disposed = true; canvas.remove(); backdrop.remove(); if (video) video.style.transform = ''; if (savedBg && savedBg !== 'none' && api.stage.style.backgroundImage === 'none') api.stage.style.backgroundImage = savedBg; delete api.dialog.dataset.no3d;
+    disposed = true; api.dialog.classList.remove('ar-burst'); canvas.remove(); backdrop.remove(); if (video) video.style.transform = ''; if (savedBg && savedBg !== 'none' && api.stage.style.backgroundImage === 'none') api.stage.style.backgroundImage = savedBg; delete api.dialog.dataset.no3d;
     if (R) { R.disposables.forEach(o => { try { o.dispose(); } catch {} }); try { R.renderer.dispose(); R.renderer.forceContextLoss(); } catch {} R = null; }
   }
   // For checks: where a poster point at a height lands on screen.

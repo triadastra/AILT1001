@@ -165,6 +165,8 @@ window.PosterAR = {
   pose3d() { if (!pose || !source || plane.hidden) return null; const v = viewport(), box = stage.getBoundingClientRect(); return { h: pose.slice(0, 8), v, width: box.width, height: box.height }; },
   toScreen(x, y) { if (!pose || !source || plane.hidden) return null; const v = viewport(), p = PosterTracking.project(pose, x / PosterTracking.width, y / PosterTracking.height); return { x: v.left + p.x * v.width, y: v.top + p.y * v.height }; }
 };
+// poster.html?ar=1 (the front page's AR button) opens the AR view straight away.
+try { if (new URLSearchParams(location.search).has('ar')) open(document.querySelector('[data-camera]')); } catch {}
 window.addEventListener('resize', render); cam.addEventListener('resize', () => hideOverlay()); window.addEventListener('pagehide', stop);
 document.addEventListener('visibilitychange', () => { if (document.hidden && (mode !== 'off' || enable.disabled)) { stop(); hint('Camera paused. Start it again when you return.', { stay: true }); } });
 // Never leave an old pose apparently locked if frame processing stalls.
