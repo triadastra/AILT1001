@@ -243,3 +243,9 @@ Used for: AI-generated video overviews and slide decks for teaching and demonstr
 References [12] and [15] were used for earlier examples; their associated artwork/strike photograph is not in the current poster. They are retained to keep established numbering stable. No current image should be credited to those entries.
 
 Reference [16] is retained as background on synthetic-media disclosure; it is not cited in the current poster text. All 23 reference numbers printed on the poster have matching entries in this list.
+
+## AR Blue / Red mode assets
+
+- The face in the Blue / Red AR workflow is drawn procedurally in `dist/ar-cases.js`; it is not a photograph or an image of a real person.
+- The node previews and blurred "copies" reuse `dist/assets/wan-frame.jpg` (official Wan 2.2 ComfyUI example, source [3]), pixelated in Red mode. Nothing explicit is depicted.
+- 3D rendering uses three.js r170 (MIT licence, `dist/vendor/three-LICENSE.txt`).

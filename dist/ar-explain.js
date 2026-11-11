@@ -13,7 +13,7 @@ const svg = net.querySelector('svg'), netTitle = net.querySelector('.ar-net-titl
 const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
 const clamp = v => Math.max(0, Math.min(1, v)), ease = t => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2, lerp = (a, b, t) => a + (b - a) * t;
 function rng(seed) { let s = seed >>> 0; return () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }
-const AREA = { text: [100, 316, 322, 492], image: [494, 316, 334, 500], video: [858, 316, 344, 500], audio: [1238, 316, 314, 492] };
+const AREA = { text: [100, 316, 322, 492], image: [494, 316, 334, 500], video: [858, 316, 344, 500], audio: [1238, 316, 314, 492], cases: [48, 890, 1594, 840] };
 const dim = el('svg', { id: 'ar-dim', 'aria-hidden': 'true' }); stage.insertBefore(dim, plane); const dimPath = el('path', { 'fill-rule': 'evenodd' }, dim);
 const MUTED = 'rgba(255,255,255,.66)';
 
@@ -302,6 +302,9 @@ const NETWORKS = {
     } }
 };
 
+// Blue / Red mode: the same workflow run as good use and as harmful use (ar-cases.js).
+if (window.PosterCases) Object.assign(NETWORKS, window.PosterCases({ el, clamp, ease, lerp, rng }));
+
 // ---------- camera: follows each step; viewers can pinch, drag, or switch to the overview ----------
 const cam = { x: 0, y: 0, w: WW, h: 900, tx: 0, ty: 0, tw: WW, th: 900, mode: 'follow', world: [0, 0, WW, 900] };
 function syncCardSpace() { const h = card.hidden ? 0 : card.getBoundingClientRect().height; if (h) net.style.setProperty('--card-h', Math.round(h + 8) + 'px'); }
@@ -331,7 +334,19 @@ viewBtn.addEventListener('click', () => setMode(cam.mode === 'overview' ? 'follo
 
 // ---------- playback ----------
 const card = document.getElementById('ar-explain'), phaseEl = card.querySelector('.ar-xp-phase'), countEl = card.querySelector('.ar-xp-count'), titleEl = card.querySelector('h3'), textEl = card.querySelector('p'),
-  dotsEl = card.querySelector('.ar-xp-dots'), toggle = document.getElementById('ar-xp-toggle'), linkEl = card.querySelector('.ar-xp-link');
+  dotsEl = card.querySelector('.ar-xp-dots'), toggle = document.getElementById('ar-xp-toggle'), linkEl = card.querySelector('.ar-xp-link'),
+  caseBar = card.querySelector('.ar-mode'), tipEl = card.querySelector('.ar-xp-tip');
+const LINK = { href: linkEl.getAttribute('href'), label: linkEl.textContent };
+let caseMode = 'blue';
+const textOf = s => s.text ?? s[caseMode], phaseOf = s => s.phase ?? (caseMode === 'blue' ? 'Blue' : 'Red');
+function paintCase() {
+  if (!current || !current.modes) { delete dialog.dataset.case; return; }
+  dialog.dataset.case = caseMode; svg.style.setProperty('--accent', current.modes[caseMode]);
+  caseBar?.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === caseMode)));
+  document.querySelectorAll('.ar-play[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.arPlay === key && b.dataset.mode === caseMode)));
+}
+// Switch Blue <-> Red on the same step.
+function setCase(m) { if (!current || !current.modes || !current.modes[m] || m === caseMode) return; caseMode = m; paintCase(); seekStep(stepIndex()); }
 let stepShownCard = -1, current = null, key = null, scene = null, k = null, starts = [], total = 0, t = 0, playing = false, last = 0, raf = 0, stepShown = -1, soundDone = false, closing = 0;
 function columnRect() { const [x, y, w, h] = AREA[key], q = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([px, py]) => PosterAR.toScreen(px, py)); if (q.some(p => !p)) return null; const xs = q.map(p => p.x), ys = q.map(p => p.y); return { q, x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; }
 function fly(open) {
@@ -341,9 +356,9 @@ function fly(open) {
   else { net.style.transition = ''; net.style.transform = from; net.style.opacity = '0'; }
 }
 function stopExplain() {
-  silence(); cancelAnimationFrame(raf); raf = 0; playing = false; const was = current; current = null; scene = null;
-  card.hidden = true; dialog.classList.remove('net-open'); stage.classList.remove('explaining'); plane.classList.remove('explaining'); document.querySelectorAll('.ar-play').forEach(b => b.setAttribute('aria-pressed', 'false'));
-  if (was && !net.hidden) { fly(false); clearTimeout(closing); closing = setTimeout(() => { if (!current) { net.hidden = true; svg.textContent = ''; dim.classList.remove('on'); } }, 420); } else { net.hidden = true; svg.textContent = ''; dim.classList.remove('on'); }
+  silence(); cancelAnimationFrame(raf); raf = 0; playing = false; const was = current; try { scene?.dispose?.(); } catch {} current = null; scene = null;
+  card.hidden = true; delete dialog.dataset.case; if (caseBar) caseBar.hidden = true; if (tipEl) tipEl.hidden = true; dialog.classList.remove('spatial'); dialog.classList.remove('net-open'); stage.classList.remove('explaining'); plane.classList.remove('explaining'); document.querySelectorAll('.ar-play').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  if (was && !was.spatial && !net.hidden) { fly(false); clearTimeout(closing); closing = setTimeout(() => { if (!current) { net.hidden = true; svg.textContent = ''; dim.classList.remove('on'); } }, 420); } else { net.hidden = true; svg.textContent = ''; dim.classList.remove('on'); }
 }
 function paintSections(si) {
   const step = current.steps[si] || { show: Object.keys(k.secs) }, done = new Set(); current.steps.slice(0, si).forEach(s => s.show.forEach(n => done.add(n)));
@@ -352,15 +367,24 @@ function paintSections(si) {
   // frames that contain other sections (U-Net, blocks) follow their children
   for (const name of ['blk', 'unet']) { const s = k.secs[name]; if (s) { const kids = { blk: ['ln1', 'qkv', 'heads', 'proj', 'mlp', 'sa', 'ca', 'ffn'], unet: ['down', 'mid', 'up', 'inside'] }[name]; const st = kids.some(n => active.has(n)) ? 'act' : kids.some(n => done.has(n)) || si === 0 ? 'done' : 'fut'; if (s.state !== st) { s.g.setAttribute('class', 's ' + st); s.state = st; } } }
 }
-function start(which) {
-  stopExplain(); clearTimeout(closing); key = which; current = NETWORKS[which]; t = 0; stepShown = -1; stepShownCard = -1; soundDone = false;
+function start(which, m) {
+  stopExplain(); clearTimeout(closing); key = which; current = NETWORKS[which]; caseMode = m === 'red' ? 'red' : 'blue'; t = 0; stepShown = -1; stepShownCard = -1; soundDone = false;
   starts = []; total = 0; current.steps.forEach(s => { starts.push(total); total += s.dur; });
-  svg.textContent = ''; svg.style.setProperty('--accent', current.accent); k = world(el('g', {}, svg), current.accent); scene = current.build(k);
+  if (current.spatial) {
+    // Spatial walkthrough: no full-screen diagram; the scene is drawn in 3D over the blurred camera, locked to the poster.
+    k = null; scene = current.build(null, { mode: () => caseMode, stage, dialog });
+    dotsEl.textContent = ''; current.steps.forEach(() => dotsEl.appendChild(document.createElement('i'))); linkEl.hidden = true;
+    linkEl.setAttribute('href', current.link ? current.link.href : LINK.href); linkEl.textContent = current.link ? current.link.label : LINK.label; if (caseBar) caseBar.hidden = !current.modes;
+    card.hidden = false; dialog.classList.add('spatial'); stage.classList.add('explaining'); plane.classList.add('explaining'); dim.classList.remove('on'); paintCase();
+    playing = true; toggle.dataset.state = 'pause'; toggle.setAttribute('aria-label', 'Pause'); last = performance.now(); tick(last); return;
+  }
+  svg.textContent = ''; svg.style.setProperty('--accent', current.accent); k = world(el('g', {}, svg), current.accent); scene = current.build(k, { mode: () => caseMode });
   const all = Object.values(k.secs).reduce((b, s) => [Math.min(b[0], s.box[0]), Math.min(b[1], s.box[1]), Math.max(b[2], s.box[2]), Math.max(b[3], s.box[3])], [1e9, 1e9, -1e9, -1e9]); cam.world = [Math.min(0, all[0]), Math.min(0, all[1]), Math.max(WW, all[2]), all[3]];
-  netTitle.textContent = current.name; netInput.textContent = '“' + current.input + '”'; netNote.textContent = current.model + ' · real layer sizes · example values illustrative';
+  netTitle.textContent = current.name; netInput.textContent = '“' + current.input + '”'; netNote.textContent = current.note || current.model + ' · real layer sizes · example values illustrative';
   dotsEl.textContent = ''; current.steps.forEach(() => dotsEl.appendChild(document.createElement('i'))); linkEl.hidden = true;
+  linkEl.setAttribute('href', current.link ? current.link.href : LINK.href); linkEl.textContent = current.link ? current.link.label : LINK.label; if (caseBar) caseBar.hidden = !current.modes;
   net.hidden = false; card.hidden = false; dialog.classList.add('net-open'); stage.classList.add('explaining'); plane.classList.add('explaining'); updateDim(); fly(true);
-  document.querySelector(`.ar-play[data-ar-play="${which}"]`)?.setAttribute('aria-pressed', 'true');
+  if (current.modes) paintCase(); else document.querySelector(`.ar-play[data-ar-play="${which}"]`)?.setAttribute('aria-pressed', 'true');
   cam.mode = 'follow'; viewBtn.textContent = 'Overview'; [cam.x, cam.y, cam.w, cam.h] = fit(cam.world); aim(cam.world); applyCam();
   playing = true; toggle.dataset.state = 'pause'; toggle.setAttribute('aria-label', 'Pause'); last = performance.now(); tick(last);
 }
@@ -372,28 +396,29 @@ function tick(now) {
   const dt = now - last; if (playing) t += Math.min(80, dt); last = now;
   const ended = t >= total; if (ended) { t = total; if (playing) { playing = false; toggle.dataset.state = 'replay'; toggle.setAttribute('aria-label', 'Replay'); linkEl.hidden = false; } }
   const si = stepIndex(), step = current.steps[si], p = clamp((t - starts[si]) / step.dur);
-  if (si !== stepShown) { stepShown = si; phaseEl.textContent = step.phase; phaseEl.dataset.phase = step.phase.toLowerCase(); countEl.textContent = `${current.name} · ${si + 1}/${current.steps.length}`; titleEl.textContent = step.title; textEl.textContent = step.text; [...dotsEl.children].forEach((d, i) => d.className = i < si ? 'done' : i === si ? 'now' : ''); if (cam.mode === 'follow') aim(focusRect(step)); else if (cam.mode !== 'overview') { cam.mode = 'follow'; viewBtn.textContent = 'Overview'; aim(focusRect(step)); } }
-  if (si !== stepShownCard) { stepShownCard = si; syncCardSpace(); if (cam.mode === 'follow') aim(focusRect(step)); }
+  if (si !== stepShown) { stepShown = si; phaseEl.textContent = phaseOf(step); phaseEl.dataset.phase = step.phase ? step.phase.toLowerCase() : caseMode; countEl.textContent = `${current.name} · ${si + 1}/${current.steps.length}`; titleEl.textContent = step.title; textEl.textContent = textOf(step); if (tipEl) { tipEl.hidden = !step.tip; tipEl.textContent = step.tip ? '⇄ What changed: ' + step.tip : ''; } [...dotsEl.children].forEach((d, i) => d.className = i < si ? 'done' : i === si ? 'now' : ''); if (!k) {} else if (cam.mode === 'follow') aim(focusRect(step)); else if (cam.mode !== 'overview') { cam.mode = 'follow'; viewBtn.textContent = 'Overview'; aim(focusRect(step)); } }
+  if (si !== stepShownCard) { stepShownCard = si; syncCardSpace(); if (k && cam.mode === 'follow') aim(focusRect(step)); }
   if (step.sound && playing && !soundDone) { soundDone = true; playSound(); }
-  paintSections(ended ? current.steps.length : si); scene.update(ended ? current.steps.length : si, p, now);
-  for (const s of Object.values(k.secs)) for (const f of s.flows) f.dots.forEach((d, i) => { if (s.state !== 'act') { d.setAttribute('opacity', 0); return; } const ph = (now / 1300 + i / f.dots.length) % 1, [x, y] = pointAt(f.pts, ph * f.L); d.setAttribute('cx', x.toFixed(1)); d.setAttribute('cy', y.toFixed(1)); d.setAttribute('opacity', Math.min(1, ph * 5, (1 - ph) * 5).toFixed(2)); });
-  if (cam.mode !== 'free') { if (cam.focus) [cam.tx, cam.ty, cam.tw, cam.th] = fit(cam.focus); applyCam(Math.min(80, Math.max(0, dt))); }
+  if (k) paintSections(ended ? current.steps.length : si); scene.update(ended ? current.steps.length : si, p, now);
+  if (k) for (const s of Object.values(k.secs)) for (const f of s.flows) f.dots.forEach((d, i) => { if (s.state !== 'act') { d.setAttribute('opacity', 0); return; } const ph = (now / 1300 + i / f.dots.length) % 1, [x, y] = pointAt(f.pts, ph * f.L); d.setAttribute('cx', x.toFixed(1)); d.setAttribute('cy', y.toFixed(1)); d.setAttribute('opacity', Math.min(1, ph * 5, (1 - ph) * 5).toFixed(2)); });
+  if (k && cam.mode !== 'free') { if (cam.focus) [cam.tx, cam.ty, cam.tw, cam.th] = fit(cam.focus); applyCam(Math.min(80, Math.max(0, dt))); }
   raf = requestAnimationFrame(tick);
 }
 function updateDim() {
-  if (!current) { dim.classList.remove('on'); return; }
+  if (!current || current.spatial) { dim.classList.remove('on'); return; }
   const r = columnRect(), box = stage.getBoundingClientRect(); if (!r) { dim.classList.remove('on'); return; }
   dim.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`); dimPath.setAttribute('d', `M-10,-10H${box.width + 10}V${box.height + 10}H-10Z M${r.q.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' L')}Z`); dim.classList.add('on');
 }
 PosterAR.onRender(updateDim); PosterAR.onStop(stopExplain);
 document.querySelectorAll('.ar-play').forEach(b => b.addEventListener('click', () => {
   if (b.dataset.arPlay === 'audio' && !audio) { try { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audio = new AC(); } catch { audio = null; } }
-  start(b.dataset.arPlay);
+  start(b.dataset.arPlay, b.dataset.mode);
 }));
+caseBar?.querySelectorAll('button').forEach(b => b.addEventListener('click', () => setCase(b.dataset.mode)));
 toggle.addEventListener('click', () => { if (!current) return; if (toggle.dataset.state === 'replay') seekStep(0); else setPlaying(!playing); });
 document.getElementById('ar-xp-prev').addEventListener('click', () => seekStep(stepIndex() - 1));
 document.getElementById('ar-xp-next').addEventListener('click', () => seekStep(stepIndex() + 1));
 document.getElementById('ar-xp-close').addEventListener('click', stopExplain);
 linkEl.addEventListener('click', () => PosterAR.stop());
-window.PosterExplain = { networks: NETWORKS, start, stop: stopExplain, camera: () => ({ ...cam }), setView: setMode, state: () => ({ network: current && current.name, step: current ? stepIndex() : -1, t, total, playing }) };
+window.PosterExplain = { networks: NETWORKS, start, stop: stopExplain, camera: () => ({ ...cam }), setView: setMode, setCase, scene: () => scene, state: () => ({ network: current && current.name, step: current ? stepIndex() : -1, mode: current && current.modes ? caseMode : null, t, total, playing }) };
 })();

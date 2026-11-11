@@ -11,7 +11,8 @@
     "test": "node tests/citations.test.cjs && node tests/interface.test.cjs",
     "test:tracking": "python3 tests/make-fixtures.py && node tests/tracking.test.cjs",
     "deploy:prepare": "npm run build && node scripts/prepare-cloud-run.mjs",
-    "deploy": "npm test && npm run deploy:prepare && bash scripts/deploy-cloud-run.sh"
+    "deploy": "npm test && npm run deploy:prepare && bash scripts/deploy-cloud-run.sh",
+    "test:walkaround": "node tests/walkaround.test.cjs"
   },
   "engines": {
     "node": ">=22.12"

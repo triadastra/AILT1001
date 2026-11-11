@@ -195,3 +195,37 @@
 #scanner.net-open .ar-xp-dots{margin:7px 0 4px}
 #scanner.net-open .ar-xp-ctrl .ar-icon{width:40px;height:40px}
 #scanner .ar-net svg{margin-bottom:calc(var(--card-h,200px) + max(10px,env(safe-area-inset-bottom)))}
+
+
+/* ---------- Blue / Red mode: the same workflow used well or harmfully, in 3D over the poster (ar-cases.js) ---------- */
+#scanner .ar-case{top:866px;padding-right:34px}
+.ar-case[data-mode=blue]{left:600px;border-color:#6cb6ff}
+.ar-case[data-mode=red]{left:1000px;border-color:#ff6b6b}
+#scanner .ar-case[data-mode=blue] svg{background:#6cb6ff;fill:#08203a}
+#scanner .ar-case[data-mode=red] svg{background:#ff6b6b;fill:#3a0808}
+/* the camera stays live but blurred; the 3D workflow stays sharp and locked to the poster */
+#ar-blur{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .5s ease,background-color .5s ease;-webkit-backdrop-filter:blur(14px) saturate(.75) brightness(.6);backdrop-filter:blur(14px) saturate(.75) brightness(.6)}
+#scanner.spatial #ar-blur{opacity:1}
+#scanner.spatial[data-case=blue] #ar-blur{background:rgba(20,60,120,.18)}
+#scanner.spatial[data-case=red] #ar-blur{background:rgba(120,16,24,.2)}
+#ar-3d{position:absolute;inset:0;z-index:2;width:100%;height:100%;pointer-events:none;transition:opacity .25s ease}
+#scanner.spatial #poster-plane>*{opacity:0!important;pointer-events:none!important}
+.ar-xp-phase[data-phase=blue]{background:#6cb6ff}
+.ar-xp-phase[data-phase=red]{background:#ff6b6b}
+#scanner .ar-mode{display:flex;gap:4px;padding:3px;margin:10px 0 2px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);width:max-content;max-width:100%}
+.ar-mode[hidden]{display:none!important}
+#scanner .ar-mode button{min-height:34px;padding:6px 14px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.75);font:700 13px/1 'DM Sans',system-ui,sans-serif;white-space:nowrap;cursor:pointer}
+.ar-mode button[data-mode=blue][aria-pressed=true]{background:#6cb6ff;color:#08203a}
+.ar-mode button[data-mode=red][aria-pressed=true]{background:#ff6b6b;color:#3a0808}
+.ar-mode button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.ar-xp-tip{margin:6px 0 0!important;min-height:0!important;font-size:12.5px!important;font-weight:700;color:#fff!important;opacity:.9}
+.ar-xp-tip[hidden]{display:none}
+#scanner[data-case=blue] .ar-xp-tip{color:#bfe0ff!important}
+#scanner[data-case=red] .ar-xp-tip{color:#ffc4c4!important}
+#ar-backdrop{position:absolute;inset:0;transform-origin:0 0;pointer-events:none}
+#scanner.spatial #camera-video{transform-origin:0 0}
+#scanner.spatial .ar-explain-card{padding:10px 14px 8px}
+#scanner.spatial .ar-explain-card h3{margin:6px 0 2px;font-size:16px}
+#scanner.spatial .ar-explain-card p{font-size:13px;line-height:1.4;min-height:0}
+#scanner.spatial .ar-mode{margin:8px 0 0}
+#scanner.spatial .ar-mode button{min-height:30px;padding:5px 12px;font-size:12.5px}

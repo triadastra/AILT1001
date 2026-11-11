@@ -87,3 +87,9 @@ Nginx now sends Cache-Control: no-cache so clients revalidate updated resources.
   - **Video:** 4 noisy frames × 12 patches = 48 tokens → one patch attending in space and time → frames decoded from the real Wan clip.
   - **Audio:** 4 codebook streams with a delay pattern → waveform drawn from the exact sound that plays (synthesised on the device, labelled illustrative).
 - Browser check: portrait and landscape screenshots at every step, the open and close transition with the fake moving camera, and no page errors.
+
+## Blue / Red 3D workflow: walk-around check — 10 November 2026
+
+- ComfyUI-style nodes float above the printed workflow at 200–360 poster units (about 10–18 cm on the A0 print). The camera pose is recovered from the tracker's homography with a lens estimate (median of oblique views, then locked) and a residual correction that keeps the paper exactly on the tracked poster. With a live camera there is no digital zoom, so the nodes stay fixed in the room.
+- `npm run test:walkaround` renders the poster from eight known camera positions (front, 35° left, 35° right and above, steep above, below right, close-up, phone tilted 18°, and a wider lens), locks the tracker on each, and compares every node's drawn position with where it physically appears from that camera. Result in a 1080 × 1920 image: paper ≤ 1.9 px; floating nodes ≤ 1.7 px with the default lens guess, 18 px (0.95 %) with the different lens.
+- These are synthetic views. A live walk-around with the printed poster on a phone is still outstanding, as is behaviour when the poster leaves the frame (the nodes hide until the tracker reacquires it).
