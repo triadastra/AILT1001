@@ -247,5 +247,5 @@ Reference [16] is retained as background on synthetic-media disclosure; it is no
 ## AR Blue / Red mode assets
 
 - The face in the Blue / Red AR workflow is drawn procedurally in `dist/ar-cases.js`; it is not a photograph or an image of a real person.
-- The node previews and blurred "copies" reuse `dist/assets/wan-frame.jpg` (official Wan 2.2 ComfyUI example, source [3]), pixelated in Red mode. Nothing explicit is depicted.
+- Blue mode's node previews show the subway guitarist cropped from `dist/assets/cite/ksampler.jpg` (official Wan 2.2 ComfyUI example, source [3]). Red mode's picture is a different image drawn in code (a figure leaping between two trains, with fake "breaking news" graphics), always shown as a mosaic; the flying copies are recoloured variants with different fake headlines. Nothing explicit is depicted.
 - 3D rendering uses three.js r170 (MIT licence, `dist/vendor/three-LICENSE.txt`).

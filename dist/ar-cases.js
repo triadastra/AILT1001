@@ -4,7 +4,7 @@
  * from the tracker's homography). Blue keeps the safety modules plugged in and releases one labelled,
  * watermarked film. Red types a harmful prompt, feeds in a face, lets the safety modules drop out, and
  * mass-produces copies that fly everywhere as blurred cards. Nothing explicit is drawn: the "censored"
- * cards are a pixelated frame of the Wan example plus the synthetic face. The face is a synthetic face drawn in code, not a real person.
+ * cards are a mosaic of a stunt scene drawn in code, with fake news graphics on top. The face is a synthetic face drawn in code, not a real person.
  * three.js is loaded only when this mode starts (dist/vendor/three.module.min.js, MIT). */
 window.PosterCases = ({ clamp, ease, lerp }) => {
 const COLOR = { blue: '#6cb6ff', red: '#ff6b6b' };
@@ -71,16 +71,35 @@ function createScene(api) {
       g.strokeStyle = '#3a2a20'; g.lineWidth = 4; g.beginPath(); g.moveTo(ex - 15, 103); g.quadraticCurveTo(ex, 96, ex + 15, 103); g.stroke(); }
     g.strokeStyle = 'rgba(120,70,50,.6)'; g.lineWidth = 3; g.beginPath(); g.moveTo(128, 128); g.lineTo(122, 150); g.lineTo(132, 152); g.stroke();
     g.fillStyle = '#b5605a'; g.beginPath(); g.ellipse(128, 170, 18, 6, 0, 0, Math.PI * 2); g.fill(); return c; })();
-  // A frame from the official Wan 2.2 example (the poster's armoured figure), plus a noise field for denoising.
-  const frame = new Image(); frame.src = 'assets/wan-frame.jpg'; let frameReady = false; (frame.decode ? frame.decode() : Promise.reject()).then(() => { frameReady = true; }).catch(() => {});
+  // Blue's picture: the subway guitarist from the poster's own KSampler screenshot (official Wan 2.2 example, source [3]).
+  const frame = new Image(); frame.src = 'assets/cite/ksampler.jpg'; let frameReady = false; (frame.decode ? frame.decode() : Promise.reject()).then(() => { frameReady = true; }).catch(() => {});
+  const CROP = [279, 70, 255, 146];
   const noise = (() => { const c = document.createElement('canvas'); c.width = 96; c.height = 54; const g = c.getContext && c.getContext('2d'); if (!g || !g.createImageData) return c; const d = g.createImageData(96, 54); for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = v; d.data[i + 1] = v * .9 + Math.random() * 25; d.data[i + 2] = v; d.data[i + 3] = 255; } g.putImageData(d, 0, 0); return c; })();
-  const tiny = document.createElement('canvas'); tiny.width = 14; tiny.height = 9;
-  function drawScene(g, x, y, w, h, a, withFace, blurred) {
-    g.save(); rr(g, x, y, w, h, 10); g.clip();
-    const tg = blurred ? tiny.getContext('2d') : g, [X, Y, W, H] = blurred ? [0, 0, 14, 9] : [x, y, w, h];
-    tg.globalAlpha = 1; tg.drawImage(noise, X, Y, W, H); tg.globalAlpha = a; if (frameReady) tg.drawImage(frame, X, Y, W, H); else { tg.fillStyle = '#4b5d6e'; tg.fillRect(X, Y, W, H); }
-    if (withFace) { tg.globalAlpha = a; tg.drawImage(face, X + W * .38, Y + H * .1, W * .26, W * .26); } tg.globalAlpha = 1;
-    if (blurred) { g.imageSmoothingEnabled = false; g.drawImage(tiny, x, y, w, h); g.imageSmoothingEnabled = true; g.fillStyle = 'rgba(255,60,60,.28)'; g.fillRect(x, y, w, h); g.fillStyle = 'rgba(0,0,0,.75)'; g.fillRect(x, y + h * .42, w, h * .2); g.fillStyle = '#fff'; g.font = `800 ${Math.round(h * .12)}px ${FONT}`; g.textAlign = 'center'; g.fillText('BLURRED · FAKE', x + w / 2, y + h * .56); g.textAlign = 'start'; }
+  // Red's picture is deliberately a different image: a fake "breaking news" stunt, drawn in code
+  // (a figure with the loaded face leaping between two moving trains). It is only ever shown as a mosaic.
+  const fake = (() => { const c = document.createElement('canvas'); c.width = 320; c.height = 200; const g = c.getContext && c.getContext('2d'); if (!g || !g.createLinearGradient) return c;
+    const sky = g.createLinearGradient(0, 0, 0, 200); sky.addColorStop(0, '#f2a65a'); sky.addColorStop(.6, '#d9584a'); sky.addColorStop(1, '#40222e'); g.fillStyle = sky; g.fillRect(0, 0, 320, 200);
+    g.fillStyle = '#2a1a22'; g.fillRect(0, 168, 320, 32); g.strokeStyle = '#8a6f6a'; g.lineWidth = 3; for (const y of [176, 190]) { g.beginPath(); g.moveTo(0, y); g.lineTo(320, y); g.stroke(); }
+    const train = (x, w, col) => { g.fillStyle = col; rr(g, x, 104, w, 62, 8); g.fill(); g.fillStyle = '#ffe9a8'; for (let k = 0; k < 4; k++) g.fillRect(x + 12 + k * (w - 24) / 4, 116, (w - 24) / 4 - 8, 18); g.fillStyle = 'rgba(255,255,255,.5)'; for (let k = 0; k < 4; k++) g.fillRect(x - 30 + k * 6, 112 + k * 13, 26, 3); };
+    train(-20, 130, '#2f6fd0'); train(214, 130, '#e8c21f');
+    // the leaping figure
+    g.strokeStyle = '#111'; g.lineWidth = 9; g.lineCap = 'round'; g.beginPath(); g.moveTo(160, 74); g.lineTo(166, 108); g.moveTo(166, 108); g.lineTo(140, 128); g.moveTo(166, 108); g.lineTo(196, 120); g.moveTo(162, 84); g.lineTo(132, 70); g.moveTo(162, 84); g.lineTo(194, 66); g.stroke();
+    g.save(); g.beginPath(); g.arc(158, 52, 24, 0, Math.PI * 2); g.clip(); g.drawImage(face, 122, 14, 72, 72); g.restore();
+    return c; })();
+  const tiny = document.createElement('canvas');
+  const HEADLINES = ['BREAKING NEWS', 'PART 2 !!', 'IS THIS REAL??', 'GONE WRONG', 'SHOCKING VIDEO', 'YOU WON’T BELIEVE'], TINTS = [null, 'rgba(80,120,255,.3)', 'rgba(60,220,120,.26)', 'rgba(255,220,60,.3)', 'rgba(220,80,255,.28)', 'rgba(60,230,230,.26)'];
+  // red = false: the guitarist. red = true: the fake stunt as a mosaic; `banner` adds the fake news graphics, `variant` picks a recoloured copy.
+  function drawScene(g, x, y, w, h, a, red, banner, variant = 0) {
+    g.save(); rr(g, x, y, w, h, 8); g.clip();
+    if (!red) { g.globalAlpha = 1; g.drawImage(noise, x, y, w, h); g.globalAlpha = a; if (frameReady) g.drawImage(frame, ...CROP, x, y, w, h); else { g.fillStyle = '#3b4652'; g.fillRect(x, y, w, h); } g.globalAlpha = 1; }
+    else {
+      tiny.width = 32; tiny.height = 20; const tg = tiny.getContext('2d'); tg.globalAlpha = 1; tg.drawImage(noise, 0, 0, 32, 20); tg.globalAlpha = a; tg.drawImage(fake, 0, 0, 32, 20); tg.globalAlpha = 1;
+      g.imageSmoothingEnabled = false; g.drawImage(tiny, x, y, w, h); g.imageSmoothingEnabled = true;
+      if (TINTS[variant]) { g.fillStyle = TINTS[variant]; g.fillRect(x, y, w, h); }
+      if (banner) { const u = h / 100; g.fillStyle = '#e01f2d'; g.fillRect(x, y + h * .72, w, h * .2); g.fillStyle = '#fff'; g.font = `800 ${(13 * u).toFixed(1)}px ${FONT}`; g.fillText(HEADLINES[variant], x + 5 * u, y + h * .865);
+        g.fillStyle = '#e01f2d'; rr(g, x + 4 * u, y + 5 * u, 30 * u, 14 * u, 3 * u); g.fill(); g.fillStyle = '#fff'; g.font = `800 ${(9.5 * u).toFixed(1)}px ${FONT}`; g.fillText('● LIVE', x + 7 * u, y + 15.5 * u);
+        g.fillStyle = 'rgba(0,0,0,.7)'; g.font = `700 ${(8 * u).toFixed(1)}px ${FONT}`; const t = 'blurred · fake', tw = g.measureText(t).width; rr(g, x + w - tw - 12 * u, y + 5 * u, tw + 8 * u, 13 * u, 3 * u); g.fill(); g.fillStyle = '#fff'; g.fillText(t, x + w - tw - 8 * u, y + 14.5 * u); }
+    }
     g.restore();
   }
 
@@ -156,15 +175,13 @@ function createScene(api) {
       return { a, b, ai, bi, key: a + '>' + b, curve, mesh, mat, dots, color: new T.Color(color) }; }
     const wires = LINKS.map(l => link(l, TYPE[DEF[l[0]].outs[l[1]][1]])), bypass = {}; for (const [c, l] of Object.entries(BYPASS)) bypass[c] = link(l, 0xff6b6b);
     // the mass-produced copies (red) and the single released film (blue)
-    const copyCanvas = document.createElement('canvas'); copyCanvas.width = 220; copyCanvas.height = 140; { const g = copyCanvas.getContext('2d'); g.fillStyle = '#10151c'; g.fillRect(0, 0, 220, 140); drawScene(g, 6, 6, 208, 128, 1, true, true); }
-    const copyTex = keep(new T.CanvasTexture(copyCanvas)); copyTex.colorSpace = T.SRGBColorSpace;
-    const copyGeo = keep(new T.BoxGeometry(150, 96, 6)), copySide = keep(new T.MeshStandardMaterial({ color: 0x2a1418, transparent: true })), copyFront = keep(new T.MeshBasicMaterial({ map: copyTex, transparent: true }));
+    const copyGeo = keep(new T.BoxGeometry(150, 96, 6)), copySide = keep(new T.MeshStandardMaterial({ color: 0x2a1418, transparent: true })), copyFronts = HEADLINES.map((_, v) => { const c = document.createElement('canvas'); c.width = 330; c.height = 210; const g = c.getContext('2d'); g.fillStyle = '#10151c'; g.fillRect(0, 0, 330, 210); drawScene(g, 6, 6, 318, 198, 1, true, true, v); const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace; return keep(new T.MeshBasicMaterial({ map: tex, transparent: true })); });
     const rand = (s => () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296)(7);
-    const copies = Array.from({ length: 64 }, (_, j) => { const m = new T.Mesh(copyGeo, [copySide, copySide, copySide, copySide, copyFront, copySide]); m.visible = false; root.add(m);
+    const copies = Array.from({ length: 64 }, (_, j) => { const m = new T.Mesh(copyGeo, [copySide, copySide, copySide, copySide, copyFronts[j % copyFronts.length], copySide]); m.visible = false; root.add(m);
       return { m, j, th: rand() * Math.PI * 2, rad: .35 + rand() * .9, z: .2 + rand() * 1.2, w: (rand() - .5) * .9, spin: [(rand() - .5) * 3, (rand() - .5) * 3, (rand() - .5) * 2] }; });
     const film = (() => { const c = document.createElement('canvas'); c.width = 300; c.height = 190; const g = c.getContext('2d'); const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace;
       const m = new T.Mesh(keep(new T.BoxGeometry(240, 152, 6)), [copySide, copySide, copySide, copySide, keep(new T.MeshBasicMaterial({ map: tex, transparent: true })), copySide]); m.visible = false; root.add(m); return { c, g, tex, m, key: '' }; })();
-    return { T, renderer, scene, camera, root, P, nodes, wires, bypass, copies, copyCanvas, copyTex, film, frameLine, disposables };
+    return { T, renderer, scene, camera, root, P, nodes, wires, bypass, copies, film, frameLine, disposables };
   }
 
   // ---------- pose: homography -> camera ----------
@@ -278,7 +295,8 @@ function createScene(api) {
       g.font = `800 17px ${FONT}`; g.textAlign = 'center'; g.fillStyle = removed ? '#ff6b6b' : msg.startsWith('✓') ? '#7ff0b0' : '#e6e6e6'; g.fillText(msg, W / 2, cy + ch / 2 + 6); g.textAlign = 'start';
     } else if (n.id === 'sampler' || n.id === 'out') {
       const a = n.id === 'sampler' ? (done ? 1 : act ? ease(clamp(p / .85)) : 0) : (done ? 1 : act ? clamp((p - .3) / .4) : 0), foot = n.id === 'out' ? 16 : 0;
-      drawScene(g, cx, cy, cw, ch - foot, Math.max(.04, a), red, red && a > .5);
+      drawScene(g, cx, cy, cw, ch - foot, Math.max(.04, a), red, red && n.id === 'out' && a > .5);
+      if (red && n.id === 'sampler' && a > .5) { g.fillStyle = 'rgba(0,0,0,.7)'; rr(g, cx + cw - 78, cy + 5, 73, 14, 3); g.fill(); g.fillStyle = '#fff'; g.font = `700 9px ${FONT}`; g.fillText('blurred · fake', cx + cw - 73, cy + 15); }
       if (n.id === 'out') { g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.fillText(a <= 0 ? 'waiting' : red ? 'no label · no watermark' : 'AI-generated · watermarked', cx, H - 10);
         if (!red && a > 0) { g.fillStyle = 'rgba(255,255,255,.88)'; g.font = `800 10px ${FONT}`; g.fillText('AI · 52-PG02', cx + 6, cy + 14); } }
     } else if (n.id === 'audio') {
@@ -329,7 +347,6 @@ function createScene(api) {
         c.m.rotation.set(c.spin[0] * burstT * spin, c.spin[1] * burstT * spin, c.spin[2] * burstT * spin * .5); c.m.scale.setScalar(Math.min(1, burstT * 2));
       } else if (c.j < stackN) { c.m.visible = true; c.m.position.copy(P(O.x - 20 + (c.j % 2) * 14, O.y - 210 - c.j * 6, O.h - 40 + c.j * 9)); c.m.rotation.set(0, 0, .08 * (c.j % 3 - 1)); c.m.scale.setScalar(.8); }
       else c.m.visible = false; });
-    if (frameReady && !R.copyFresh) { R.copyFresh = true; const g = R.copyCanvas.getContext('2d'); drawScene(g, 6, 6, 208, 128, 1, true, true); R.copyTex.needsUpdate = true; }
     // Blue: one credited, watermarked film is released and glides down onto the paper.
     const fp = mode === 'blue' ? (ended ? 1 : idx === 5 ? ease(clamp((p - .55) / .4)) : 0) : 0, fm = R.film;
     fm.m.visible = fp > 0; if (fp > 0) { fm.m.position.copy(P(lerp(O.x, 1420, fp), lerp(O.y + 40, 1690, fp), lerp(O.h - 60, 6, fp))); fm.m.rotation.set(0, 0, lerp(0, -.12, fp));
