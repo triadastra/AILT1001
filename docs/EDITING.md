@@ -4,13 +4,9 @@ Run `npm run dev` and keep http://localhost:5173 open while editing. Vite refres
 
 ## Citations front page
 
-The front page, `dist/index.html`, shows only the numbered citations. Each card is one `<li class="cite" id="ref-N">` with:
+The front page, `dist/index.html`, is deliberately plain: a heading, one **Open the AR poster** button, then the numbered citations in printed order. There are no animations, images or scripts. Each entry is one `<li class="cite" id="ref-N">` with the citation, a "Used for" line and an **Open source** link.
 
-- an animated **stage**: a real image cropped from the poster (`dist/assets/cite/`), the Wan clip, or a small CSS concept animation (`c-*` classes in `dist/citations.css`);
-- three summary lines in `<ol class="beats">`, which play in turn (edit the text directly; keep three lines);
-- the citation, the "On the poster" note, the visual credit, and an **Open original source** link.
-
-Keep each card's citation text and link the same as `dist/references.json`; `npm test` checks this. Animations pause off-screen, stop for visitors who choose reduced motion, and have a **Pause animations** button that shows every summary line as plain text.
+Keep each entry's title, authors and link the same as `dist/references.json`; `npm test` checks this, and that the page has exactly one AR button and stays script-free. The button links to `poster.html?ar=1`, which opens the AR view straight away.
 
 ## Wording and activities
 
