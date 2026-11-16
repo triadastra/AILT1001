@@ -2,6 +2,10 @@
 
 Run `npm run dev` and keep http://localhost:5173 open while editing. Vite refreshes the page when source files change.
 
+## Site navigation
+
+Every page starts with the same bar: the site name plus **Citations** (`index.html`), **Interactive poster** (`poster.html`) and **References & credits** (`references.html`). The markup is the `<header class="site-nav">` block right after `<body>` on each page; styles are in `dist/site-nav.css`. If you rename or add a page, change that block on all three pages and move `aria-current="page"` to the link for the page you are on. Use `↗` only on links that open another website in a new tab; links within the site use `→` (or `↓` for the same page).
+
 ## Citations front page
 
 The front page, `dist/index.html`, shows only the numbered citations. Each card is one `<li class="cite" id="ref-N">` with:

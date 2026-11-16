@@ -150,7 +150,7 @@ const detail = {
 };
 document.querySelectorAll('[data-ar-section]').forEach(b => b.addEventListener('click', () => {
   const d = detail[b.dataset.arSection];
-  $('ar-sheet-content').innerHTML = '<h2>' + d.title + '</h2><p>' + d.text + '</p><a href="' + d.href + '">' + d.label + ' ↗</a>';
+  $('ar-sheet-content').innerHTML = '<h2>' + d.title + '</h2><p>' + d.text + '</p><a href="' + d.href + '">' + d.label + ' →</a>';
   document.querySelector('#ar-sheet-content a').addEventListener('click', stop);
   sheet.hidden = false; $('close-ar-sheet').focus();
 }));
