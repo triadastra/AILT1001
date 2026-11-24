@@ -15,7 +15,7 @@ const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'dist',
 (async () => {
   let b;
   try {
-    for (let i = 0; i < 60; i++) { try { await fetch(`http://127.0.0.1:${PORT}/poster.html`); break; } catch { await new Promise(r => setTimeout(r, 250)); } }
+    for (let i = 0; i < 60; i++) { try { await fetch(`http://127.0.0.1:${PORT}/`); break; } catch { await new Promise(r => setTimeout(r, 250)); } }
     b = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
     const p = await b.newPage({ viewport: { width: 390, height: 844 } }), errs = []; p.on('pageerror', e => errs.push(e.message));
     let current = null; await p.route('**/assets/poster-tracking-preview.jpg', r => r.fulfill({ path: current, contentType: 'image/jpeg' }));
@@ -23,9 +23,9 @@ const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'dist',
     for (const v of meta.views) {
       current = path.join(dir, `orbit-${v.name}.jpg`);
       // a fresh page per view, so the browser cannot reuse the previous view's image
-      await p.goto(`http://127.0.0.1:${PORT}/poster.html?v=${v.name}`); await p.click('[data-camera]'); await p.click('#ar-more'); await p.click('#preview-ar');
+      await p.goto(`http://127.0.0.1:${PORT}/?v=${v.name}`); await p.click('[data-camera]'); await p.click('#ar-more'); await p.click('#preview-ar');
       await p.waitForFunction(() => !document.getElementById('poster-plane').hidden, null, { timeout: 25000 });
-      await p.click('.ar-case[data-mode="blue"]', { force: true });
+      await p.evaluate(() => document.querySelector('.ar-case[data-mode="blue"]').click());
       await p.waitForFunction(() => PosterExplain.scene()?.ready?.(), null, { timeout: 20000 }); await p.waitForTimeout(1200);
       const res = await p.evaluate(pts => { const s = PosterExplain.scene(), ps = PosterAR.pose3d(); return pts.map(([x, y, h]) => { const q = s.project(x, y, h); return [(q.x - ps.v.left) / ps.v.width * 1080, (q.y - ps.v.top) / ps.v.height * 1920]; }); }, meta.pts);
       const e = res.map((q, i) => Math.hypot(q[0] - v.gt[i][0], q[1] - v.gt[i][1]));

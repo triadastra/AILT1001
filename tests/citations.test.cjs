@@ -15,7 +15,7 @@ for(const r of refs){
   assert.equal(c.querySelectorAll('.beats li').length,3,`Three summary lines for [${r.number}]`);
   for(const img of c.querySelectorAll('img,video'))assert(fs.existsSync('dist/'+(img.getAttribute('src'))),`Asset exists: ${img.getAttribute('src')}`);
 }
-assert(d.querySelector('a[href="poster.html"]'),'Link to the interactive poster');
+assert(d.querySelector('button[data-camera]'),'Start AR button');assert(d.getElementById('scanner'),'AR view is part of the front page');
 d.querySelector('[data-filter="models"]').click();
 assert(cards.some(c=>c.hidden)&&!d.getElementById('ref-7').hidden,'Filter hides other groups');
 assert(/Showing \d+ of 26/.test(d.getElementById('count').textContent));

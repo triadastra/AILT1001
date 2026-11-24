@@ -14,8 +14,8 @@ Keep each card's citation text and link the same as `dist/references.json`; `npm
 
 ## Wording and activities
 
-- `dist/poster.html` (formerly the homepage) contains the hero, navigation, controls, scene inputs and the AR overlay shell. It is linked from the top of the citations page.
-- `dist/experience.js` contains the `models`, `posterWorkflow`, `steps` and `cases` objects/arrays. These drive the model cards, six-step workflow and ethics activities. Change the text strings, preserving their keys and array structure.
+- `dist/index.html` is the whole site: the citation cards, the **Start AR** button and the AR overlay shell (`<dialog id="scanner">`). `dist/poster.html` only redirects old links to it.
+- The earlier activity page (`experience.js`, `experience.css`) was removed when the site became one page; it is still in the Git history.
 - `dist/ar-camera.js` also contains the AR detail-sheet text. When changing an explanation, check both normal browsing and the AR detail sheet.
 - `dist/assets/group-captions.json` and `workflow-captions.json` are caption records. The website does **not** fetch these automatically. Editing only those JSON files will not change the visible activity wording. Keep them consistent with the corresponding visible text where applicable.
 
@@ -29,7 +29,7 @@ To replace the demonstration clip, change `dist/assets/wan-example.mp4`, its `wa
 
 ## Layout and AR
 
-Edit `dist/experience.css` for visual changes; the AR camera view has its own glass styles in `dist/ar.css`. The AR **Play** walkthroughs live in `dist/ar-explain.js`. Pressing Play lifts a printed column into a full-screen diagram of the whole network and runs one example input through it (“A musician plays”, “Armoured figure in a forest”, “Armoured figure turns”, “Gentle guitar music”). Each network has `steps` (phase, title, caption text, duration) and a `build` function that draws the diagram in a 360 × 560 layout. Edit the `title`/`text` strings to change captions. The example numbers (token IDs, attention weights, probabilities, codes) are illustrative and labelled as such on screen; keep that label if you change them. Check narrow portrait and landscape screens, keyboard navigation, and the camera close button. Font declarations are in `dist/fonts.css`.
+Edit `dist/citations.css` for the page’s visual changes; the AR camera view has its own glass styles in `dist/ar.css`. The AR **Play** walkthroughs live in `dist/ar-explain.js`. Pressing Play lifts a printed column into a full-screen diagram of the whole network and runs one example input through it (“A musician plays”, “Armoured figure in a forest”, “Armoured figure turns”, “Gentle guitar music”). Each network has `steps` (phase, title, caption text, duration) and a `build` function that draws the diagram in a 360 × 560 layout. Edit the `title`/`text` strings to change captions. The example numbers (token IDs, attention weights, probabilities, codes) are illustrative and labelled as such on screen; keep that label if you change them. Check narrow portrait and landscape screens, keyboard navigation, and the camera close button. Font declarations are in `dist/fonts.css`.
 
 AR tracking primarily uses ~2000 natural feature points extracted from the final print PDF (`dist/assets/poster-features.bin`). If the printed artwork changes, run `node scripts/build-ar-features.mjs poster.pdf` and `npm run test:tracking`. The marker layout (fallback) corresponds to the existing printed A0 poster. `dist/planar-tracking.js` is the runtime geometry; `dist/assets/ar-tracking-layout.json` documents the layout. Moving the printed markers requires coordinated detector/geometry changes and fresh tracking tests. Changing only the JSON record does not alter the runtime tracker. Do not replace the marker pattern with decorative corner brackets.
 
