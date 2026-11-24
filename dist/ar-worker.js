@@ -23,7 +23,9 @@ if(provisional.locked){previous={h:provisional.h,width:image.width,height:image.
 return found;}
 function markerPose(image){const markers=detect(image);const fitted=PosterTracking.fit(markers,image.width,image.height);previous=fitted.locked?{h:fitted.h,width:image.width,height:image.height}:null;return {...fitted,method:'markers'};}
 self.onmessage=e=>{if(!featuresSettled){featuresReady.then(()=>self.onmessage(e));return;}handle(e);};
-function handle(e){const {buffer,width,height,session}=e.data;try{const image={data:new Uint8ClampedArray(buffer),width,height};let result=null;
-if(features){result=features.locate(PosterFeatures.toGray(image.data,width,height),width,height);if(result.locked)previous={h:result.h,width,height};}
-if(!result||!result.locked){const fitted=markerPose(image);if(fitted.locked){features?.seed(fitted.h);result=fitted;}else result={...fitted,method:features?'features':'markers',features:result?.features||0,markers:fitted.count,count:0};}
-self.postMessage({session,...result,width,height});}catch(err){self.postMessage({session,locked:false,count:0,reason:'error',message:String(err)});}}
+// Frames marked `sized` were captured at their processing size by ar-camera.js: features only, unless `markers` asks for the
+// corner-code fallback too (sent on a larger frame every few misses). `prior` is the live pose from the frame-to-frame tracker.
+function handle(e){const {buffer,width,height,session,id,sized,markers,prior}=e.data;try{const image={data:new Uint8ClampedArray(buffer),width,height};let result=null;
+if(features){if(prior)features.hint(prior);result=features.locate(PosterFeatures.toGray(image.data,width,height),width,height,{exact:!!sized});if(result.locked)previous={h:result.h,width,height};}
+if(!result||!result.locked){if(sized&&!markers&&features)result={...result,markers:0};else{const fitted=markerPose(image);if(fitted.locked){features?.seed(fitted.h);result=fitted;}else result={...fitted,method:features?'features':'markers',features:result?.features||0,markers:fitted.count,count:0};}}
+self.postMessage({session,id,...result,width,height});}catch(err){self.postMessage({session,id,locked:false,count:0,reason:'error',message:String(err)});}}

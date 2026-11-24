@@ -13,7 +13,7 @@ const svg = net.querySelector('svg'), netTitle = net.querySelector('.ar-net-titl
 const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
 const clamp = v => Math.max(0, Math.min(1, v)), ease = t => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2, lerp = (a, b, t) => a + (b - a) * t;
 function rng(seed) { let s = seed >>> 0; return () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }
-const AREA = { text: [100, 316, 322, 492], image: [494, 316, 334, 500], video: [858, 316, 344, 500], audio: [1238, 316, 314, 492], cases: [48, 890, 1594, 840] };
+const AREA = PosterAR.areas; // printed sections in poster units, shared with the aim-to-focus zoom (ar-camera.js)
 const dim = el('svg', { id: 'ar-dim', 'aria-hidden': 'true' }); stage.insertBefore(dim, plane); const dimPath = el('path', { 'fill-rule': 'evenodd' }, dim);
 const MUTED = 'rgba(255,255,255,.66)';
 
@@ -348,7 +348,7 @@ function paintCase() {
 // Switch Blue <-> Red on the same step.
 function setCase(m) { if (!current || !current.modes || !current.modes[m] || m === caseMode) return; caseMode = m; paintCase(); seekStep(stepIndex()); }
 let stepShownCard = -1, current = null, key = null, scene = null, k = null, starts = [], total = 0, t = 0, playing = false, last = 0, raf = 0, stepShown = -1, soundDone = false, closing = 0;
-function columnRect() { const [x, y, w, h] = AREA[key], q = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([px, py]) => PosterAR.toScreen(px, py)); if (q.some(p => !p)) return null; const xs = q.map(p => p.x), ys = q.map(p => p.y); return { q, x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; }
+function columnRect(which = key) { const [x, y, w, h] = AREA[which], q = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([px, py]) => PosterAR.toScreen(px, py)); if (q.some(p => !p)) return null; const xs = q.map(p => p.x), ys = q.map(p => p.y); return { q, x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; }
 function fly(open) {
   const r = columnRect(), box = net.getBoundingClientRect(), from = r && box.width ? `translate(${r.x - box.left}px,${r.y - box.top}px) scale(${r.w / box.width},${r.h / box.height})` : 'scale(.92)';
   net.style.transition = 'none';
@@ -357,7 +357,7 @@ function fly(open) {
 }
 function stopExplain() {
   silence(); cancelAnimationFrame(raf); raf = 0; playing = false; const was = current; try { scene?.dispose?.(); } catch {} current = null; scene = null;
-  card.hidden = true; delete dialog.dataset.case; if (caseBar) caseBar.hidden = true; if (tipEl) tipEl.hidden = true; dialog.classList.remove('spatial'); dialog.classList.remove('net-open'); stage.classList.remove('explaining'); plane.classList.remove('explaining'); document.querySelectorAll('.ar-play').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  PosterAR.hold(false); card.hidden = true; delete dialog.dataset.case; if (caseBar) caseBar.hidden = true; if (tipEl) tipEl.hidden = true; dialog.classList.remove('spatial'); dialog.classList.remove('net-open'); stage.classList.remove('explaining'); plane.classList.remove('explaining'); document.querySelectorAll('.ar-play').forEach(b => b.setAttribute('aria-pressed', 'false'));
   if (was && !was.spatial && !net.hidden) { fly(false); clearTimeout(closing); closing = setTimeout(() => { if (!current) { net.hidden = true; svg.textContent = ''; dim.classList.remove('on'); } }, 420); } else { net.hidden = true; svg.textContent = ''; dim.classList.remove('on'); }
 }
 function paintSections(si) {
@@ -372,7 +372,7 @@ function start(which, m) {
   starts = []; total = 0; current.steps.forEach(s => { starts.push(total); total += s.dur; });
   if (current.spatial) {
     // Spatial walkthrough: no full-screen diagram; the scene is drawn in 3D over the blurred camera, locked to the poster.
-    k = null; scene = current.build(null, { mode: () => caseMode, stage, dialog });
+    PosterAR.hold(true); k = null; scene = current.build(null, { mode: () => caseMode, stage, dialog });
     dotsEl.textContent = ''; current.steps.forEach(() => dotsEl.appendChild(document.createElement('i'))); linkEl.hidden = true;
     linkEl.setAttribute('href', current.link ? current.link.href : LINK.href); linkEl.textContent = current.link ? current.link.label : LINK.label; if (caseBar) caseBar.hidden = !current.modes;
     card.hidden = false; dialog.classList.add('spatial'); stage.classList.add('explaining'); plane.classList.add('explaining'); dim.classList.remove('on'); paintCase();
@@ -404,10 +404,11 @@ function tick(now) {
   if (k && cam.mode !== 'free') { if (cam.focus) [cam.tx, cam.ty, cam.tw, cam.th] = fit(cam.focus); applyCam(Math.min(80, Math.max(0, dt))); }
   raf = requestAnimationFrame(tick);
 }
+// Dim everything except one printed section: the one being explained, or else the one the phone is aimed at.
 function updateDim() {
-  if (!current || current.spatial) { dim.classList.remove('on'); return; }
-  const r = columnRect(), box = stage.getBoundingClientRect(); if (!r) { dim.classList.remove('on'); return; }
-  dim.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`); dimPath.setAttribute('d', `M-10,-10H${box.width + 10}V${box.height + 10}H-10Z M${r.q.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' L')}Z`); dim.classList.add('on');
+  const which = current ? (current.spatial ? null : key) : PosterAR.focus(); if (!which) { dim.classList.remove('on'); return; }
+  const r = columnRect(which), box = stage.getBoundingClientRect(); if (!r) { dim.classList.remove('on'); return; }
+  dim.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`); dimPath.setAttribute('d', `M-10,-10H${box.width + 10}V${box.height + 10}H-10Z M${r.q.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' L')}Z`); dim.classList.add('on'); dim.classList.toggle('aim', !current);
 }
 PosterAR.onRender(updateDim); PosterAR.onStop(stopExplain);
 document.querySelectorAll('.ar-play').forEach(b => b.addEventListener('click', () => {
@@ -419,6 +420,9 @@ toggle.addEventListener('click', () => { if (!current) return; if (toggle.datase
 document.getElementById('ar-xp-prev').addEventListener('click', () => seekStep(stepIndex() - 1));
 document.getElementById('ar-xp-next').addEventListener('click', () => seekStep(stepIndex() + 1));
 document.getElementById('ar-xp-close').addEventListener('click', stopExplain);
-linkEl.addEventListener('click', () => PosterAR.stop());
+linkEl.addEventListener('click', () => PosterAR.close());
+// The caption is tucked away: the (?) button shows or hides the written explanation of the current step.
+const helpBtn = document.getElementById('ar-xp-help');
+helpBtn?.addEventListener('click', () => { const open = card.classList.toggle('ar-open'); helpBtn.setAttribute('aria-expanded', String(open)); syncCardSpace(); if (k && cam.mode === 'follow' && current) aim(focusRect(current.steps[stepIndex()])); });
 window.PosterExplain = { networks: NETWORKS, start, stop: stopExplain, camera: () => ({ ...cam }), setView: setMode, setCase, scene: () => scene, state: () => ({ network: current && current.name, step: current ? stepIndex() : -1, mode: current && current.modes ? caseMode : null, t, total, playing }) };
 })();

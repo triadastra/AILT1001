@@ -37,7 +37,7 @@ const STEPS = [
 const steps = STEPS.map(s => ({ title: s.title, blue: s.blue, red: s.red, tip: s.tip, dur: 8600 }));
 return { cases: {
   name: 'Same workflow, two outcomes', input: 'A musician plays guitar in an MTR station', accent: COLOR.blue, modes: COLOR, spatial: true,
-  link: { href: 'references.html', label: 'Check the sources ↗' }, steps,
+  link: { href: '#citations', label: 'Check the sources ↗' }, steps,
   build(_, api) { return createScene(api); }
 } };
 

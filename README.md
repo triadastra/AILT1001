@@ -26,16 +26,14 @@ The editable source is **`dist/`**; despite its name, it is not generated. Do no
 
 | What you want to change | File |
 | --- | --- |
-| Front page: the 26 citations, their animated summaries and source links | `dist/index.html`, `dist/citations.css`, `dist/citations.js` |
-| Interactive poster page (activities and AR) | `dist/poster.html` |
-| Colours, spacing, typography, mobile layout | `dist/experience.css` |
-| Model explanations, workflow captions, scenarios and quiz answers | `dist/experience.js` |
+| The one page: the 26 citations, their animated summaries, source links, the **Start AR** button and the AR view's markup | `dist/index.html`, `dist/citations.css`, `dist/citations.js` |
 | Visible reference list and image credits | `dist/references.html` |
 | Reference metadata / caption archives | `dist/references.json`, `dist/assets/*captions.json` |
 | Images and demonstration clip | `dist/assets/` |
-| Camera controls and overlay | `dist/ar-camera.js`, `dist/ar.css` (glass AR look) |
+| Camera controls, overlay, aim-to-focus zoom and its section rectangles (`AREAS`) | `dist/ar-camera.js`, `dist/ar.css` (glass AR look) |
 | AR “Play” walkthroughs of the four model paths (steps, captions, poster coordinates) | `dist/ar-explain.js` |
-| Poster tracking (feature points + marker fallback) | `dist/ar-features.js`, `dist/ar-worker.js`, `dist/planar-tracking.js` |
+| Poster tracking: detector (feature points + marker fallback) | `dist/ar-features.js`, `dist/ar-worker.js`, `dist/planar-tracking.js` |
+| Poster tracking: fast frame-to-frame follower | `dist/ar-flow.js`, `dist/ar-flow-worker.js` |
 | AR feature reference (~2000 points from the print PDF) | `dist/assets/poster-features.bin`, rebuilt with `scripts/build-ar-features.mjs` |
 
 See **[Editing guide](docs/EDITING.md)** for the important distinctions between live text and reference data.
@@ -60,7 +58,11 @@ git push origin main
 
 ## AR checks
 
-Use **Enter poster AR → ⋯ → Preview without camera** for a camera-free demonstration. For the phone camera, open the HTTPS website, tap **Interactive poster & AR → Enter poster AR → Start** and allow camera access. The tracker matches about 2000 natural feature points from the printed poster, so any clearly visible part of the poster can lock the overlay, even close up with the corners out of frame. The four corner markers remain a fallback.
+The site is one page. **Start AR** opens the camera view and asks for the camera in the same tap; `/#ar` opens the view directly, and the old `/poster.html` address redirects there. Use **⋯ → Preview without camera** for a camera-free demonstration.
+
+Aim the phone at a section of the poster (a model column, the workflow, or the pros and cons). That section is enlarged to fill the screen while staying locked to the paper, the rest is dimmed, and one large button starts its walkthrough. Walkthrough captions are hidden until you tap **(?)**. Turning the phone sideways gives the wide sections more room; on an iPhone, Safari also hides its toolbars in landscape, which is the closest a web page gets to full screen there.
+
+The tracker matches about 2000 natural feature points from the printed poster, so any clearly visible part of the poster can lock the overlay, even close up with the corners out of frame. Once locked, a lightweight follower tracks the poster on every camera frame and the detector only corrects it twice a second. The four corner markers remain a fallback.
 
 If the printed poster changes, rebuild the feature reference from the new print PDF (needs Poppler's `pdftoppm`, e.g. `brew install poppler`):
 
@@ -73,6 +75,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r tests/requirements.txt
 npm run test:tracking
+npm run test:walkaround
 ```
 
 The tracking tests use generated views of the actual poster, including perspective, dim lighting and a marker-free negative control. They are not a guarantee of physical-camera performance. The last user phone test reported unreliable detection; regression fixes passed screenshot tests, but a new physical phone test is still needed. See [AR validation notes](AR-VALIDATION.md).

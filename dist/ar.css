@@ -229,3 +229,39 @@
 #scanner.spatial .ar-explain-card p{font-size:13px;line-height:1.4;min-height:0}
 #scanner.spatial .ar-mode{margin:8px 0 0}
 #scanner.spatial .ar-mode button{min-height:30px;padding:5px 12px;font-size:12.5px}
+
+/* ---------- Aim to focus: the section the phone points at fills the screen; the rest is dimmed ---------- */
+#camera-video{transform-origin:0 0}
+#ar-dim.aim path{fill:rgba(4,6,8,.62)}
+.ar-focus{display:flex;align-items:center;gap:10px;max-width:min(460px,100%);padding:8px 8px 8px 18px;border-radius:999px;background:var(--glass-read);-webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%);
+  border:1px solid var(--edge);box-shadow:inset 0 1px 0 var(--shine),0 10px 40px rgba(0,0,0,.3);animation:ar-rise-in .25s ease-out}
+.ar-focus[hidden]{display:none}
+#ar-focus-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ar-focus-actions{display:flex;gap:6px;margin-left:auto;flex:none}
+#scanner #ar-focus-actions button{min-height:48px;padding:0 22px;border:0;border-radius:999px;background:#fff;color:#172a27;font-weight:700;font-size:16px;white-space:nowrap;cursor:pointer}
+#scanner #ar-focus-actions button[data-mode=blue]{background:#6cb6ff;color:#08203a}
+#scanner #ar-focus-actions button[data-mode=red]{background:#ff6b6b;color:#3a0808}
+#scanner #ar-focus-actions button[data-mode]{padding:0 14px;font-size:14px}
+#scanner[data-focus=cases] .ar-focus,#scanner[data-focus=impact] .ar-focus{flex-wrap:wrap;border-radius:26px;padding:10px 10px 10px 16px}
+.ar-focus-turn{display:none;order:3;flex-basis:100%;font-size:12px;color:var(--soft)}
+@media(orientation:portrait){#scanner[data-focus=cases] .ar-focus-turn,#scanner[data-focus=impact] .ar-focus-turn{display:block}}
+/* a walkthrough has its own controls */
+#scanner.net-open .ar-focus,#scanner.spatial .ar-focus,.ar-explain-card:not([hidden])~.ar-focus{display:none}
+@media(max-height:500px){#scanner #ar-focus-actions button{min-height:42px}}
+
+/* ---------- Captions stay out of the way: (?) shows the written explanation ---------- */
+.ar-xp-text{display:none}
+.ar-explain-card.ar-open .ar-xp-text{display:block}
+#scanner .ar-xp-help{font-weight:700;font-size:17px;border:1px solid rgba(255,255,255,.4)}
+#scanner .ar-xp-help[aria-expanded=true]{background:#fff;color:#172a27}
+.ar-explain-card:not(.ar-open){width:min(360px,100%);padding:10px 12px 8px}
+.ar-explain-card:not(.ar-open) h3{margin:6px 0 0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ar-explain-card:not(.ar-open) .ar-xp-dots{margin:8px 0 6px}
+#scanner.net-open .ar-net header small{display:none}
+#scanner.net-open:has(.ar-explain-card.ar-open) .ar-net header small{display:block}
+#scanner[data-focus] .ar-play{opacity:0;pointer-events:none}
+/* Landscape: the caption is a side panel, so the diagram keeps the full height */
+@media(max-height:500px) and (min-aspect-ratio:4/3){#scanner .ar-net svg{margin-bottom:10px}.ar-explain-card:not(.ar-open){width:min(300px,34vw)}}
+#scanner .ar-mode button[data-mode=blue][aria-pressed=true]{background:#6cb6ff;color:#08203a}
+#scanner .ar-mode button[data-mode=red][aria-pressed=true]{background:#ff6b6b;color:#3a0808}
+@media(max-height:500px) and (min-aspect-ratio:4/3){#scanner.spatial .ar-bar,#scanner.spatial .ar-toast{display:none}}

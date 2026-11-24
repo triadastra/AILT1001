@@ -4,10 +4,12 @@ const $ = id => document.getElementById(id);
 const dialog = $('scanner'), cam = $('camera-video'), plane = $('poster-plane'), status = $('scan-status'), quality = $('ar-quality'),
   stateChip = $('ar-state'), enable = $('enable-camera'), guide = $('ar-guide'), demoVideo = $('ar-demo-video'), sheet = $('ar-sheet'),
   switchCamera = $('switch-camera'), more = $('ar-more'), drawer = $('ar-drawer'), pointsCanvas = $('ar-points'),
+  focusBar = $('ar-focus'), focusName = $('ar-focus-name'), focusActs = $('ar-focus-actions'),
   dock = dialog.querySelector('.ar-dock'), stage = dialog.querySelector('.ar-stage');
 const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
 let facing = 'environment', stream = null, worker = null, timer = null, session = 0, focusReturn = null, busy = false, lastGood = 0,
-  pose = null, source = null, mode = 'off', misses = 0, current = null, target = null, raf = 0, quietTimer = 0, flashTimer = 0, wasLocked = false;
+  pose = null, source = null, mode = 'off', misses = 0, current = null, target = null, raf = 0, quietTimer = 0, flashTimer = 0, wasLocked = false,
+  flow = null, flowBusy = false, flowOk = false, gen = 0, frameId = 0, detAt = 0, detMisses = 0, searching = 0, wake = null;
 
 // ---------- minimised dock ----------
 function setState(state, text) { stateChip.dataset.state = state; quality.textContent = text; quality.classList.toggle('locked', state === 'locked'); }
@@ -20,10 +22,65 @@ more.addEventListener('click', () => setDrawer(drawer.hidden));
 stateChip.addEventListener('click', () => { dock.classList.toggle('quiet'); clearTimeout(quietTimer); });
 
 // ---------- overlay ----------
-function hideOverlay() { plane.hidden = true; pose = null; current = null; target = null; lastGood = 0; misses = 0; wasLocked = false; cancelAnimationFrame(raf); raf = 0; demoVideo.pause(); renderHooks.forEach(f => f()); }
-function viewport() {
+function hideOverlay() { plane.hidden = true; pose = null; current = null; target = null; lastGood = 0; misses = 0; wasLocked = false; cancelAnimationFrame(raf); raf = 0; cancelAnimationFrame(aimRaf); aimRaf = 0; demoVideo.pause(); pending = null; zoom.s = 1; zoom.tx = zoom.ty = 0; paintZoom(); setFocus(null); renderHooks.forEach(f => f()); }
+function baseViewport() {
   const sw = source.videoWidth || source.naturalWidth, sh = source.videoHeight || source.naturalHeight, box = stage.getBoundingClientRect();
   return PosterTracking.viewport(sw, sh, box.width, box.height, mode === 'camera');
+}
+// Where the camera image is drawn, including the aim-to-focus zoom. Everything registered to the poster uses this.
+function viewport() { const b = baseViewport(); return { width: b.width * zoom.s, height: b.height * zoom.s, left: b.left * zoom.s + zoom.tx, top: b.top * zoom.s + zoom.ty }; }
+
+// ---------- aim to focus ----------
+// Point the phone at a section of the poster: that section is enlarged to fill the screen (still locked to the paper),
+// the rest is dimmed (ar-explain.js draws the dimming), and one large button starts its AR walkthrough.
+const PW = PosterTracking.width, PH = PosterTracking.height, MAX_ZOOM = 3;
+const AREAS = { text: [100, 316, 322, 492], image: [494, 316, 334, 500], video: [858, 316, 344, 500], audio: [1238, 316, 314, 492], cases: [48, 890, 1594, 840], impact: [30, 1740, 1622, 560] };
+const FOCUS = {
+  text: ['Text model', [['Play', '.ar-play[data-ar-play="text"]']]], image: ['Image model', [['Play', '.ar-play[data-ar-play="image"]']]],
+  video: ['Video model', [['Play', '.ar-play[data-ar-play="video"]']]], audio: ['Audio model', [['Play', '.ar-play[data-ar-play="audio"]']]],
+  cases: ['From idea to release', [['Blue · good use', '.ar-case[data-mode="blue"]', 'blue'], ['Red · harmful use', '.ar-case[data-mode="red"]', 'red']]],
+  impact: ['Pros & cons', [['Open', '[data-ar-section="impact"]']]]
+};
+const zoom = { s: 1, tx: 0, ty: 0 }; let focus = null, pending = null, pendingAt = 0, held = false, aimRaf = 0, aimLast = 0;
+const between = (lo, hi, v) => lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v));
+function invert(h) { const [a, b, c, d, e, f, g, k] = h, m = [e - f * k, c * k - b, b * f - c * e, f * g - d, a - c * g, c * d - a * f, d * k - e * g, b * g - a * k, a * e - b * d]; return Math.abs(m[8]) > 1e-12 ? m.slice(0, 8).map(v => v / m[8]) : null; }
+function setFocus(k) {
+  if (k === focus) return; focus = k; if (k) dialog.dataset.focus = k; else delete dialog.dataset.focus;
+  if (focusBar) { focusBar.hidden = !k; focusActs.textContent = '';
+    if (k) { focusName.textContent = FOCUS[k][0];
+      for (const [label, selector, tone] of FOCUS[k][1]) { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (tone) b.dataset.mode = tone; b.addEventListener('click', () => plane.querySelector(selector)?.click()); focusActs.appendChild(b); } } }
+}
+function paintZoom() {
+  if (held) return;
+  if (mode === 'preview' && source) { const v = viewport(); stage.style.backgroundSize = v.width.toFixed(1) + 'px ' + v.height.toFixed(1) + 'px'; stage.style.backgroundPosition = v.left.toFixed(1) + 'px ' + v.top.toFixed(1) + 'px'; }
+  else cam.style.transform = zoom.s === 1 && !zoom.tx && !zoom.ty ? '' : 'translate(' + zoom.tx.toFixed(1) + 'px,' + zoom.ty.toFixed(1) + 'px) scale(' + zoom.s.toFixed(4) + ')';
+}
+function aimTick(now) {
+  aimRaf = 0; if (!pose || !source || held) return;
+  const dt = Math.max(0, Math.min(100, now - aimLast)); aimLast = now;
+  const b = baseViewport(), box = stage.getBoundingClientRect(), W = box.width, H = box.height, inv = invert(pose);
+  let hit = null; // the section under the middle of the camera view (measured before any zoom, so zooming cannot change it)
+  if (inv) { const u = (W / 2 - b.left) / b.width, v = (H * .46 - b.top) / b.height, d = inv[6] * u + inv[7] * v + 1, x = (inv[0] * u + inv[1] * v + inv[2]) / d * PW, y = (inv[3] * u + inv[4] * v + inv[5]) / d * PH;
+    for (const k in AREAS) { const [ax, ay, aw, ah] = AREAS[k], m = k === focus ? 45 : -12; if (d > 0 && x > ax - m && x < ax + aw + m && y > ay - m && y < ay + ah + m) { hit = k; break; } } }
+  if (!plane.classList.contains('explaining')) { if (hit !== pending) { pending = hit; pendingAt = now; } if (pending !== focus && now - pendingAt > (pending ? 380 : 700)) setFocus(pending); }
+  let s = 1, tx = 0, ty = 0;
+  if (focus) {
+    const [ax, ay, aw, ah] = AREAS[focus]; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [px, py] of [[ax, ay], [ax + aw, ay], [ax + aw, ay + ah], [ax, ay + ah]]) { const q = PosterTracking.project(pose, px / PW, py / PH), sx = b.left + q.x * b.width, sy = b.top + q.y * b.height; x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy); }
+    const dockH = dock.getBoundingClientRect().height, fx0 = 10, fx1 = W - 10, fy0 = 10, fy1 = Math.max(H * .45, H - Math.min(dockH, H * .4) - 10);
+    s = Math.max(1, Math.min(MAX_ZOOM, (fx1 - fx0) / Math.max(1, x1 - x0), (fy1 - fy0) / Math.max(1, y1 - y0)));
+    tx = (fx0 + fx1) / 2 - s * (x0 + x1) / 2; ty = (fy0 + fy1) / 2 - s * (y0 + y1) / 2;
+    if (mode === 'camera') { tx = between(W - (b.left + b.width) * s, -b.left * s, tx); ty = between(H - (b.top + b.height) * s, -b.top * s, ty); } // never show past the edge of the camera image
+  }
+  const a = dt ? 1 - Math.exp(-dt / 170) : 0; zoom.s += (s - zoom.s) * a; zoom.tx += (tx - zoom.tx) * a; zoom.ty += (ty - zoom.ty) * a;
+  if (Math.abs(s - zoom.s) < .002 && Math.abs(tx - zoom.tx) < .3 && Math.abs(ty - zoom.ty) < .3) { zoom.s = s; zoom.tx = tx; zoom.ty = ty; }
+  paintZoom(); render();
+  aimRaf = requestAnimationFrame(aimTick);
+}
+// Blue / Red draws its own 3D scene at true scale: the focus zoom steps aside while it runs.
+function hold(on) {
+  held = !!on; if (held) { zoom.s = 1; zoom.tx = zoom.ty = 0; cam.style.transform = ''; if (mode === 'preview') { stage.style.backgroundSize = 'contain'; stage.style.backgroundPosition = 'center'; } render(); }
+  else if (pose && !aimRaf) { aimLast = performance.now(); aimRaf = requestAnimationFrame(aimTick); }
 }
 const renderHooks = [], stopHooks = [];
 function render() {
@@ -47,6 +104,7 @@ function step() {
 }
 function applyPose(h, corners) {
   const next = corners && corners.length === 4 ? corners : cornersOf(h);
+  if (!aimRaf && !held) { aimLast = performance.now(); aimRaf = requestAnimationFrame(aimTick); }
   if (!current) { current = next; target = next; pose = h; render(); return; }
   target = next; if (!raf) raf = requestAnimationFrame(step);
 }
@@ -63,54 +121,97 @@ function flashPoints(points) {
 // ---------- session lifecycle ----------
 function stop() {
   session++; clearTimeout(timer); if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; cam.srcObject = null;
-  if (worker) worker.terminate(); worker = null; busy = false; source = null; mode = 'off'; cam.hidden = false; hideOverlay();
+  if (worker) worker.terminate(); worker = null; busy = false; if (flow) flow.terminate(); flow = null; flowBusy = false; flowOk = false; detMisses = 0; searching = 0;
+  try { wake?.release?.(); } catch {} wake = null; held = false; source = null; mode = 'off'; cam.hidden = false; hideOverlay();
   enable.disabled = false; enable.hidden = false; switchCamera.hidden = true; guide.hidden = false; setState('off', 'Camera off');
   stage.style.backgroundImage = 'none'; stopHooks.forEach(f => f());
 }
 function close() { stop(); sheet.hidden = true; setDrawer(false); dialog.close(); if (document.fullscreenElement === dialog) document.exitFullscreen?.().catch(() => {}); focusReturn?.focus(); }
 function open(button) { focusReturn = button; sheet.hidden = true; setDrawer(false); hint('Point your camera at the poster. Any part of it works.', { stay: true }); dialog.showModal(); }
-document.querySelectorAll('[data-camera]').forEach(b => b.addEventListener('click', () => open(b)));
+// The one button on the page: open the AR view and start the camera in the same tap.
+document.querySelectorAll('[data-camera]').forEach(b => b.addEventListener('click', () => { open(b); startCamera(); }));
 $('close-camera').addEventListener('click', close); dialog.addEventListener('cancel', e => { e.preventDefault(); close(); });
-$('camera-fallback').addEventListener('click', () => { close(); document.getElementById('explore').scrollIntoView(); });
+$('camera-fallback').addEventListener('click', close);
 
 function describe(r) {
   if (r.method === 'markers') return r.count + '/4 corner markers';
   return r.count + ' points';
 }
+// ---------- tracking ----------
+// Two workers. The detector (ar-worker.js) finds the poster from nothing, but takes a while per frame. The follower
+// (ar-flow-worker.js) tracks the poster from one small frame to the next in a few milliseconds, so the overlay moves at the
+// camera's frame rate; the detector then only has to check and correct it twice a second.
+const SEARCH = [800, 1200, 440], MARKER_SIZE = 1600, FLOW_SIZE = 360, CHECK_EVERY = 500;
+const flowCanvas = document.createElement('canvas'), flowCtx = flowCanvas.getContext('2d', { willReadFrequently: true });
+function grab(c, g, long) {
+  const sw = source.videoWidth || source.naturalWidth, sh = source.videoHeight || source.naturalHeight, k = Math.min(1, long / Math.max(sw, sh));
+  c.width = Math.max(1, Math.round(sw * k)); c.height = Math.max(1, Math.round(sh * k)); g.drawImage(source, 0, 0, c.width, c.height);
+  return { buffer: g.getImageData(0, 0, c.width, c.height).data.buffer, width: c.width, height: c.height };
+}
+function dropFollower() { flowOk = false; detMisses = 0; detAt = 0; gen++; flow?.postMessage({ type: 'reset' }); }
 function startWorker(s) {
+  if (mode === 'camera') {
+    try {
+      flow = new Worker('ar-flow-worker.js');
+      flow.onmessage = e => {
+        const m = e.data; if (s !== session || m.session !== session) return; if (!m.rebased) flowBusy = false; if (m.gen !== gen) return;
+        if (m.ok) { flowOk = true; lastGood = performance.now(); if (wasLocked) applyPose(m.h); }
+        else if (flowOk) { flowOk = false; detAt = 0; } // followed it off the frame or into blur: ask the detector straight away
+      };
+      flow.onerror = () => { try { flow?.terminate(); } catch {} flow = null; flowBusy = false; flowOk = false; };
+    } catch { flow = null; }
+  }
   worker = new Worker('ar-worker.js');
   worker.onmessage = e => {
     if (s !== session || e.data.session !== session) return;
     busy = false; const r = e.data;
     if (r.locked) {
-      misses = 0; lastGood = performance.now(); applyPose(r.h, r.corners);
+      misses = 0; detMisses = 0; searching = 0; lastGood = performance.now();
+      if (flow && r.id) flow.postMessage({ type: 'pose', session, gen, id: r.id, h: r.h }); // the follower carries this fix forward to the newest frame
+      if (!flowOk) applyPose(r.h, r.corners);
       setState(mode === 'preview' ? 'preview' : 'locked', (mode === 'preview' ? 'Preview · ' : 'Locked · ') + describe(r));
       guide.hidden = true; plane.hidden = false;
       if (!wasLocked) {
         wasLocked = true; flashPoints(r.points);
-        hint(mode === 'preview' ? 'Preview only—this uses a poster image, not your camera. Tap a glass button.' : 'Locked. Tap a glass button on the poster.');
+        hint(mode === 'preview' ? 'Preview only—this uses a poster image, not your camera. Aim at a section.' : 'Locked. Aim at a section of the poster.');
       }
       if (demoVideo.paused) demoVideo.play().catch(() => {});
     } else if (r.reason === 'error') {
-      hideOverlay(); guide.hidden = false; setState('search', 'Tracking error');
-      hint('Tracking could not start. Explore the poster without the camera.', { stay: true });
-    } else if (++misses >= 2 || !wasLocked) {
-      // One missed frame keeps the last pose; a second hides it.
-      const had = wasLocked; hideOverlay(); guide.hidden = false;
-      setState('search', mode === 'preview' ? 'Preview · searching' : 'Searching…');
-      if (had || status.textContent.startsWith('Locked')) hint('Lost the poster. Hold steady and keep part of it in view.', { stay: true });
+      dropFollower(); hideOverlay(); guide.hidden = false; setState('search', 'Tracking error');
+      hint('Tracking could not start. Read the citations without the camera.', { stay: true });
+    } else {
+      searching++;
+      if (flowOk && ++detMisses < 4) { /* the follower still has the poster; a blurred or very close frame can miss */ }
+      else if (++misses >= 2 || !wasLocked) {
+        // One missed frame keeps the last pose; a second hides it.
+        const had = wasLocked; dropFollower(); hideOverlay(); guide.hidden = false;
+        setState('search', mode === 'preview' ? 'Preview · searching' : 'Searching…');
+        if (had || status.textContent.startsWith('Locked')) hint('Lost the poster. Hold steady and keep part of it in view.', { stay: true });
+      }
     }
-    if (mode === 'camera') timer = setTimeout(frame, 30);
   };
-  worker.onerror = () => { busy = false; hideOverlay(); stop(); hint('Tracking is unavailable in this browser. Explore without the camera.', { stay: true }); };
+  worker.onerror = () => { busy = false; hideOverlay(); stop(); hint('Tracking is unavailable in this browser. Read the citations without the camera.', { stay: true }); };
 }
+// Preview: one full-size still image.
 function frame() {
   if (!source || busy || !dialog.open) return;
   const sw = source.videoWidth || source.naturalWidth, sh = source.videoHeight || source.naturalHeight;
   if (!sw || !sh) { timer = setTimeout(frame, 150); return; }
-  const scale = Math.min(1, 1920 / Math.max(sw, sh)); canvas.width = Math.round(sw * scale); canvas.height = Math.round(sh * scale);
-  ctx.drawImage(source, 0, 0, canvas.width, canvas.height); const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  busy = true; worker.postMessage({ buffer: pixels.data.buffer, width: canvas.width, height: canvas.height, session }, [pixels.data.buffer]);
+  const p = grab(canvas, ctx, 1920); busy = true; worker.postMessage({ ...p, session }, [p.buffer]);
+}
+// Camera: runs once per camera frame.
+function pump(s) {
+  if (s !== session || mode !== 'camera' || !source || !dialog.open) return;
+  if (source.requestVideoFrameCallback) source.requestVideoFrameCallback(() => pump(s)); else timer = setTimeout(() => pump(s), 33);
+  const sw = source.videoWidth, sh = source.videoHeight; if (!sw || !sh || !worker) return;
+  const now = performance.now(); let id = 0;
+  if (flow && !flowBusy) { id = ++frameId; const p = grab(flowCanvas, flowCtx, FLOW_SIZE); flowBusy = true; flow.postMessage({ type: 'frame', session, gen, id, ...p }, [p.buffer]); }
+  // The detector needs the follower to hold the very same frame, so its answer can be carried forward.
+  if (busy || (flow && !id) || (flowOk && now - detAt < CHECK_EVERY)) return;
+  const markers = !flowOk && searching % 4 === 3; let size = markers ? MARKER_SIZE : SEARCH[searching % SEARCH.length];
+  if (flowOk && pose) { const a = PosterTracking.project(pose, .5, 0), b = PosterTracking.project(pose, .5, 1), tall = Math.hypot((b.x - a.x) * sw, (b.y - a.y) * sh); size = Math.max(360, Math.min(1280, Math.round(Math.max(sw, sh) * 620 / Math.max(1, tall)))); }
+  const p = grab(canvas, ctx, size); detAt = now; busy = true;
+  worker.postMessage({ ...p, session, id, sized: true, markers, prior: flowOk && pose ? pose.slice(0, 8) : null }, [p.buffer]);
 }
 async function startCamera() {
   stop(); const s = ++session; enable.disabled = true; setDrawer(false); setState('search', 'Waiting for permission');
@@ -118,16 +219,17 @@ async function startCamera() {
   if (dialog.requestFullscreen) dialog.requestFullscreen().catch(() => {});
   try {
     if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('Camera API unavailable'), { name: 'CameraUnavailable' });
-    const acquired = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 2560 }, aspectRatio: { ideal: Math.min(1, window.innerWidth / window.innerHeight) } }, audio: false });
+    const acquired = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 2560 }, frameRate: { ideal: 30 }, aspectRatio: { ideal: Math.min(1, window.innerWidth / window.innerHeight) } }, audio: false });
     if (s !== session || !dialog.open) { acquired.getTracks().forEach(t => t.stop()); return; }
     stream = acquired; cam.srcObject = stream; await cam.play(); if (s !== session) return;
     source = cam; mode = 'camera'; enable.hidden = true; switchCamera.hidden = false; setState('search', 'Searching…');
     hint('Point at the poster—up close or from afar. Any part of it works.', { stay: true });
-    startWorker(s); frame();
+    try { navigator.wakeLock?.request('screen').then(w => { if (s !== session) w.release(); else wake = w; }).catch(() => {}); } catch {} // keep the screen on while tracking
+    startWorker(s); pump(s);
   } catch (e) {
     if (s !== session) return; stop();
     const messages = { NotAllowedError: 'Camera permission was denied. Allow camera access in your browser’s site settings, then try again.', NotFoundError: 'No camera was found. Open this page in Safari or Chrome on your phone.', NotReadableError: 'The camera is busy. Close other camera apps, then try again.', CameraUnavailable: 'Camera access needs HTTPS or localhost. Open the secure website in Safari or Chrome.' };
-    hint(messages[e.name] || 'The camera could not start. Try again or use Preview without camera.', { stay: true });
+    hint(messages[e.name] || 'The camera could not start. Tap Start to try again, or use Preview without camera under ⋯.', { stay: true });
   }
 }
 enable.addEventListener('click', startCamera);
@@ -144,29 +246,30 @@ $('preview-ar').addEventListener('click', async () => {
 });
 
 const detail = {
-  models: { title: 'Four model paths. One film.', text: 'Text predicts tokens, latent diffusion refines images, video models refine clips across space and time, and audio models decode sound. Tap through the model explanations to inspect each path.', href: '?s=models#explore', label: 'Explore the models' },
-  workflow: { title: 'A real ComfyUI example', text: 'This is the official Wan 2.2 example clip, rather than a film made by our group. The printed workflow shows separate published examples. Source [3] explains its nodes and settings.', href: 'references.html#ref-3', label: 'Open the original workflow source' },
-  impact: { title: 'Possibilities and responsibility', text: 'Read our group’s pros and cons, then try the release decisions about consent, continuity and trust. The reference page provides the evidence and its limits.', href: '?s=impact#explore', label: 'Explore our pros and cons' }
+  workflow: { title: 'A real ComfyUI example', text: 'The official Wan 2.2 example clip, not a film made by our group. Source [3] explains its nodes and settings.', href: '#ref-3', label: 'Open source [3]' },
+  impact: { title: 'Possibilities and responsibility', text: 'Our group’s pros and cons, each with its numbered source.', href: '#citations', label: 'Read the citations' }
 };
 document.querySelectorAll('[data-ar-section]').forEach(b => b.addEventListener('click', () => {
   const d = detail[b.dataset.arSection];
   $('ar-sheet-content').innerHTML = '<h2>' + d.title + '</h2><p>' + d.text + '</p><a href="' + d.href + '">' + d.label + ' ↗</a>';
-  document.querySelector('#ar-sheet-content a').addEventListener('click', stop);
+  document.querySelector('#ar-sheet-content a').addEventListener('click', close);
   sheet.hidden = false; $('close-ar-sheet').focus();
 }));
 $('close-ar-sheet').addEventListener('click', () => sheet.hidden = true);
 
 // Small API for the model-path explanations (ar-explain.js).
 window.PosterAR = {
-  onRender: f => renderHooks.push(f), onStop: f => stopHooks.push(f), stop,
+  onRender: f => renderHooks.push(f), onStop: f => stopHooks.push(f), stop, close, hold, areas: AREAS, focus: () => focus,
   // Raw pose for 3D rendering: homography h (poster 0..1 -> video 0..1), the video's drawn rectangle and the stage size.
   // 'camera' for a live camera, 'preview' for the poster image.
   mode: () => mode,
   pose3d() { if (!pose || !source || plane.hidden) return null; const v = viewport(), box = stage.getBoundingClientRect(); return { h: pose.slice(0, 8), v, width: box.width, height: box.height }; },
   toScreen(x, y) { if (!pose || !source || plane.hidden) return null; const v = viewport(), p = PosterTracking.project(pose, x / PosterTracking.width, y / PosterTracking.height); return { x: v.left + p.x * v.width, y: v.top + p.y * v.height }; }
 };
-window.addEventListener('resize', render); cam.addEventListener('resize', () => hideOverlay()); window.addEventListener('pagehide', stop);
+window.addEventListener('resize', render); cam.addEventListener('resize', () => { dropFollower(); hideOverlay(); }); window.addEventListener('pagehide', stop);
 document.addEventListener('visibilitychange', () => { if (document.hidden && (mode !== 'off' || enable.disabled)) { stop(); hint('Camera paused. Start it again when you return.', { stay: true }); } });
 // Never leave an old pose apparently locked if frame processing stalls.
-setInterval(() => { if (mode === 'camera' && lastGood && performance.now() - lastGood > 1200) { hideOverlay(); guide.hidden = false; setState('search', 'Tracking paused'); hint('Tracking paused. Hold the poster in view.', { stay: true }); } }, 250);
+setInterval(() => { if (mode === 'camera' && lastGood && performance.now() - lastGood > 1200) { dropFollower(); hideOverlay(); guide.hidden = false; setState('search', 'Tracking paused'); hint('Tracking paused. Hold the poster in view.', { stay: true }); } }, 250);
+// A link to ./#ar opens the AR view directly (the camera still needs one tap on Start).
+if (location.hash === '#ar') { try { open(document.querySelector('[data-camera]')); } catch {} }
 })();

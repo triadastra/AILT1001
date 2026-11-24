@@ -121,7 +121,8 @@ function createTracker(ref){let prior=null,miss=0,posterHeight=0,attempt=0;
   // Pick a processing size that makes the poster appear at a reference scale:
   // close-ups are shrunk, distant posters keep more resolution.
   function processingSize(width,height){const long=Math.max(width,height);if(prior&&posterHeight>0)return Math.max(360,Math.min(1280,long,Math.round(long*TARGET_POSTER/posterHeight)));return Math.min(long,SEARCH_SIZES[attempt%SEARCH_SIZES.length]);}
-  function locate(gray,width,height){const size=processingSize(width,height),scale=Math.min(1,size/Math.max(width,height)),sw=Math.round(width*scale),sh=Math.round(height*scale),small=scale<1?resize(gray,width,height,sw,sh):gray;
+  // opts.exact: the frame was already captured at its processing size (ar-camera.js), so it is used as it is.
+  function locate(gray,width,height,opts={}){const size=opts.exact?Math.max(width,height):processingSize(width,height),scale=Math.min(1,size/Math.max(width,height)),sw=Math.round(width*scale),sh=Math.round(height*scale),small=scale<1?resize(gray,width,height,sw,sh):gray;
     const frame=extract(small,sw,sh,900,{cols:12,rows:12}),threshold=Math.max(3,Math.max(sw,sh)*.006);let result=null,mode='search';
     if(prior){const pix=toPixels(prior,sw,sh),m=guidedMatches(ref,frame,pix,Math.max(18,Math.max(sw,sh)*.045));const r=ransac(m,sw,sh,{threshold,iterations:250,prior:pix});if(r&&r.inliers.length>=MIN_INLIERS&&r.inliers.length>=m.u.length*.25){result={r,m};mode='track';}}
     if(!result){const m=globalMatches(ref,frame),r=ransac(m,sw,sh,{threshold,iterations:1500});if(r&&r.inliers.length>=MIN_INLIERS&&r.inliers.length>=m.u.length*.12)result={r,m};}
@@ -129,10 +130,10 @@ function createTracker(ref){let prior=null,miss=0,posterHeight=0,attempt=0;
     miss=0;const h=toNormalised(result.r.h,sw,sh);prior=h;const top=apply(h,.5,0),bottom=apply(h,.5,1);posterHeight=Math.hypot((bottom[0]-top[0])*width,(bottom[1]-top[1])*height);
     const pts=[];const step=Math.max(1,Math.ceil(result.r.inliers.length/160));for(let k=0;k<result.r.inliers.length;k+=step){const i=result.r.inliers[k];pts.push(+(result.m.u[i]/sw).toFixed(4),+(result.m.v[i]/sh).toFixed(4));}
     return {locked:true,method:'features',mode,h,count:result.r.inliers.length,matches:result.m.u.length,features:frame.count,processed:[sw,sh],error:result.r.error/scale,points:pts,corners:[[0,0],[1,0],[1,1],[0,1]].map(([x,y])=>{const p=apply(h,x,y);return {x:p[0],y:p[1]};})};}
-  return {locate,seed(h){prior=h;miss=0;posterHeight=0;},reset(){prior=null;miss=0;posterHeight=0;},reference:ref};}
+  return {locate,seed(h){prior=h;miss=0;posterHeight=0;},hint(h){prior=h;miss=0;},reset(){prior=null;miss=0;posterHeight=0;},reference:ref};}
 // Pixel homography <-> the normalised form used by PosterTracking (poster 0..1 -> frame 0..1).
 function toNormalised(h,width,height){return [h[0]/width,h[1]/width,h[2]/width,h[3]/height,h[4]/height,h[5]/height,h[6],h[7]];}
 function toPixels(h,width,height){return [h[0]*width,h[1]*width,h[2]*width,h[3]*height,h[4]*height,h[5]*height,h[6],h[7]];}
 
-root.PosterFeatures={extract,buildReference,serialize,deserialize,createTracker,toGray,resize,ransac,globalMatches,plausible,hamming,LEVELS,width:W,height:H};if(typeof module!=='undefined')module.exports=root.PosterFeatures;
+root.PosterFeatures={toNormalised,toPixels,apply,extract,buildReference,serialize,deserialize,createTracker,toGray,resize,ransac,globalMatches,plausible,hamming,LEVELS,width:W,height:H};if(typeof module!=='undefined')module.exports=root.PosterFeatures;
 })(typeof self!=='undefined'?self:globalThis);
