@@ -6,7 +6,7 @@ const { chromium } = require('playwright'), fs = require('fs'), os = require('os
 const { execFileSync, spawn } = require('child_process');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'walkaround-')), PORT = 5179;
 // node positions from dist/ar-cases.js (x, y, height above the paper, width, height), in poster units
-const D = { prompt: [210, 1030, 200, 300, 230], face: [210, 1500, 200, 260, 300], safety: [565, 1030, 260, 280, 170], consent: [565, 1500, 260, 280, 170], sampler: [915, 1265, 330, 320, 380], audio: [1235, 965, 260, 270, 180], money: [1235, 1255, 280, 270, 190], water: [1235, 1545, 300, 270, 170], out: [1530, 1265, 360, 240, 330] };
+const D = { prompt: [317, 1135, 200, 300, 230], face: [715, 1160, 200, 260, 300], safety: [1200, 1010, 260, 280, 170], consent: [980, 1215, 260, 280, 170], sampler: [1490, 1200, 330, 320, 380], audio: [1300, 1570, 260, 270, 180], money: [848, 1540, 280, 270, 190], water: [205, 1565, 300, 270, 170], out: [455, 1525, 360, 240, 330] };
 const pts = [[48, 900, 0], [1640, 900, 0], [1640, 1745, 0], [48, 1745, 0]];
 for (const [x, y, h, w, hh] of Object.values(D)) pts.push([x, y, h + 8], [x - w / 2, y - hh / 2, h + 8], [x + w / 2, y + hh / 2, h + 8]);
 execFileSync('uv', ['run', '-q', '--with', 'pillow', '--with', 'numpy', 'python', '-I', 'tests/make-walkaround.py', 'dist/assets/poster-tracking-preview.jpg', dir, JSON.stringify(pts)], { stdio: 'inherit' });

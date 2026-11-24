@@ -44,6 +44,12 @@ const FOCUS = {
 const zoom = { s: 1, tx: 0, ty: 0 }; let focus = null, pending = null, pendingAt = 0, held = false, aimRaf = 0, aimLast = 0;
 const between = (lo, hi, v) => lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v));
 function invert(h) { const [a, b, c, d, e, f, g, k] = h, m = [e - f * k, c * k - b, b * f - c * e, f * g - d, a - c * g, c * d - a * f, d * k - e * g, b * g - a * k, a * e - b * d]; return Math.abs(m[8]) > 1e-12 ? m.slice(0, 8).map(v => v / m[8]) : null; }
+// The poster point (in poster units) under the middle of the camera view. Measured before any zoom, so zooming cannot change it.
+function aimPoint() {
+  if (!pose || !source) return null; const inv = invert(pose); if (!inv) return null;
+  const b = baseViewport(), box = stage.getBoundingClientRect(), u = (box.width / 2 - b.left) / b.width, v = (box.height * .46 - b.top) / b.height, d = inv[6] * u + inv[7] * v + 1;
+  return d > 0 ? { x: (inv[0] * u + inv[1] * v + inv[2]) / d * PW, y: (inv[3] * u + inv[4] * v + inv[5]) / d * PH } : null;
+}
 function setFocus(k) {
   if (k === focus) return; focus = k; if (k) dialog.dataset.focus = k; else delete dialog.dataset.focus;
   if (focusBar) { focusBar.hidden = !k; focusActs.textContent = '';
@@ -58,10 +64,9 @@ function paintZoom() {
 function aimTick(now) {
   aimRaf = 0; if (!pose || !source || held) return;
   const dt = Math.max(0, Math.min(100, now - aimLast)); aimLast = now;
-  const b = baseViewport(), box = stage.getBoundingClientRect(), W = box.width, H = box.height, inv = invert(pose);
-  let hit = null; // the section under the middle of the camera view (measured before any zoom, so zooming cannot change it)
-  if (inv) { const u = (W / 2 - b.left) / b.width, v = (H * .46 - b.top) / b.height, d = inv[6] * u + inv[7] * v + 1, x = (inv[0] * u + inv[1] * v + inv[2]) / d * PW, y = (inv[3] * u + inv[4] * v + inv[5]) / d * PH;
-    for (const k in AREAS) { const [ax, ay, aw, ah] = AREAS[k], m = k === focus ? 45 : -12; if (d > 0 && x > ax - m && x < ax + aw + m && y > ay - m && y < ay + ah + m) { hit = k; break; } } }
+  const b = baseViewport(), box = stage.getBoundingClientRect(), W = box.width, H = box.height;
+  let hit = null; const at = aimPoint(); // the section under the middle of the camera view
+  if (at) for (const k in AREAS) { const [ax, ay, aw, ah] = AREAS[k], m = k === focus ? 45 : -12; if (at.x > ax - m && at.x < ax + aw + m && at.y > ay - m && at.y < ay + ah + m) { hit = k; break; } }
   if (!plane.classList.contains('explaining')) { if (hit !== pending) { pending = hit; pendingAt = now; } if (pending !== focus && now - pendingAt > (pending ? 380 : 700)) setFocus(pending); }
   let s = 1, tx = 0, ty = 0;
   if (focus) {
@@ -173,7 +178,7 @@ function startWorker(s) {
       guide.hidden = true; plane.hidden = false;
       if (!wasLocked) {
         wasLocked = true; flashPoints(r.points);
-        hint(mode === 'preview' ? 'Preview only—this uses a poster image, not your camera. Aim at a section.' : 'Locked. Aim at a section of the poster.');
+        if (!plane.classList.contains('explaining')) hint(mode === 'preview' ? 'Preview only—this uses a poster image, not your camera. Aim at a section.' : 'Locked. Aim at a section of the poster.'); else dock.classList.add('quiet');
       }
       if (demoVideo.paused) demoVideo.play().catch(() => {});
     } else if (r.reason === 'error') {
@@ -259,7 +264,7 @@ $('close-ar-sheet').addEventListener('click', () => sheet.hidden = true);
 
 // Small API for the model-path explanations (ar-explain.js).
 window.PosterAR = {
-  onRender: f => renderHooks.push(f), onStop: f => stopHooks.push(f), stop, close, hold, areas: AREAS, focus: () => focus,
+  onRender: f => renderHooks.push(f), onStop: f => stopHooks.push(f), stop, close, hold, areas: AREAS, focus: () => focus, aim: aimPoint,
   // Raw pose for 3D rendering: homography h (poster 0..1 -> video 0..1), the video's drawn rectangle and the stage size.
   // 'camera' for a live camera, 'preview' for the poster image.
   mode: () => mode,

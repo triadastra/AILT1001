@@ -357,7 +357,7 @@ function fly(open) {
 }
 function stopExplain() {
   silence(); cancelAnimationFrame(raf); raf = 0; playing = false; const was = current; try { scene?.dispose?.(); } catch {} current = null; scene = null;
-  PosterAR.hold(false); card.hidden = true; delete dialog.dataset.case; if (caseBar) caseBar.hidden = true; if (tipEl) tipEl.hidden = true; dialog.classList.remove('spatial'); dialog.classList.remove('net-open'); stage.classList.remove('explaining'); plane.classList.remove('explaining'); document.querySelectorAll('.ar-play').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  PosterAR.hold(false); card.hidden = true; lookAt = -1; if (lookEl) { lookEl.textContent = ''; lookEl.hidden = true; } delete dialog.dataset.case; if (caseBar) caseBar.hidden = true; if (tipEl) tipEl.hidden = true; dialog.classList.remove('spatial'); dialog.classList.remove('net-open'); stage.classList.remove('explaining'); plane.classList.remove('explaining'); document.querySelectorAll('.ar-play').forEach(b => b.setAttribute('aria-pressed', 'false'));
   if (was && !was.spatial && !net.hidden) { fly(false); clearTimeout(closing); closing = setTimeout(() => { if (!current) { net.hidden = true; svg.textContent = ''; dim.classList.remove('on'); } }, 420); } else { net.hidden = true; svg.textContent = ''; dim.classList.remove('on'); }
 }
 function paintSections(si) {
@@ -372,7 +372,7 @@ function start(which, m) {
   starts = []; total = 0; current.steps.forEach(s => { starts.push(total); total += s.dur; });
   if (current.spatial) {
     // Spatial walkthrough: no full-screen diagram; the scene is drawn in 3D over the blurred camera, locked to the poster.
-    PosterAR.hold(true); k = null; scene = current.build(null, { mode: () => caseMode, stage, dialog });
+    PosterAR.hold(true); k = null; lookAt = -1; gazeHit = -1; gazeApplied = gazePanel(); scene = current.build(null, { mode: () => caseMode, stage, dialog, look: () => lookAt });
     dotsEl.textContent = ''; current.steps.forEach(() => dotsEl.appendChild(document.createElement('i'))); linkEl.hidden = true;
     linkEl.setAttribute('href', current.link ? current.link.href : LINK.href); linkEl.textContent = current.link ? current.link.label : LINK.label; if (caseBar) caseBar.hidden = !current.modes;
     card.hidden = false; dialog.classList.add('spatial'); stage.classList.add('explaining'); plane.classList.add('explaining'); dim.classList.remove('on'); paintCase();
@@ -388,16 +388,29 @@ function start(which, m) {
   cam.mode = 'follow'; viewBtn.textContent = 'Overview'; [cam.x, cam.y, cam.w, cam.h] = fit(cam.world); aim(cam.world); applyCam();
   playing = true; toggle.dataset.state = 'pause'; toggle.setAttribute('aria-label', 'Pause'); last = performance.now(); tick(last);
 }
+// Steps that follow the gaze (live camera, sections with printed `panels`): looking at panel N shows step N, and the
+// step waits there until the viewer looks at another panel. -2: not available here (preview, or no panels); -1: looking elsewhere.
+let gazeHit = -1, gazeSince = 0, gazeApplied = -1, lookAt = -1;
+const lookEl = card.querySelector('.ar-xp-look'), two = n => String(n).padStart(2, '0');
+function gazePanel() { if (!current || !current.panels || !PosterAR.mode || PosterAR.mode() !== 'camera') return -2; const a = PosterAR.aim(); return a ? current.panels.findIndex(([x, y, w, h]) => a.x >= x && a.x <= x + w && a.y >= y && a.y <= y + h) : -1; }
 function setPlaying(on) { if (!on) silence(); playing = on; toggle.setAttribute('aria-label', on ? 'Pause' : 'Play'); toggle.dataset.state = on ? 'pause' : 'play'; last = performance.now(); if (on && !raf) raf = requestAnimationFrame(tick); }
 function seekStep(i) { if (!current) return; silence(); i = Math.max(0, Math.min(current.steps.length - 1, i)); t = starts[i] + 1; stepShown = -1; soundDone = false; linkEl.hidden = true; if (cam.mode === 'free') cam.mode = 'follow'; if (!playing) setPlaying(true); tick(performance.now()); }
 function stepIndex() { let i = 0; while (i + 1 < starts.length && t >= starts[i + 1]) i++; return i; }
 function tick(now) {
   cancelAnimationFrame(raf); raf = 0; if (!current) return;
-  const dt = now - last; if (playing) t += Math.min(80, dt); last = now;
+  const dt = now - last, gaze = gazePanel(), live = gaze !== -2, was = stepIndex();
+  if (live) {
+    if (gaze !== gazeHit) { gazeHit = gaze; gazeSince = now; }
+    else if (gaze >= 0 && gaze !== gazeApplied && now - gazeSince > 380) { gazeApplied = gaze; if (gaze !== was || t >= total) { silence(); t = starts[gaze] + 1; stepShown = -1; soundDone = false; linkEl.hidden = true; playing = true; toggle.dataset.state = 'pause'; toggle.setAttribute('aria-label', 'Pause'); } }
+  }
+  const from = stepIndex(); if (playing) t += Math.min(80, dt); last = now;
+  if (live && from < current.steps.length - 1 && t >= starts[from + 1]) t = starts[from + 1] - 1; // wait on this panel
   const ended = t >= total; if (ended) { t = total; if (playing) { playing = false; toggle.dataset.state = 'replay'; toggle.setAttribute('aria-label', 'Replay'); linkEl.hidden = false; } }
   const si = stepIndex(), step = current.steps[si], p = clamp((t - starts[si]) / step.dur);
   if (si !== stepShown) { stepShown = si; phaseEl.textContent = phaseOf(step); phaseEl.dataset.phase = step.phase ? step.phase.toLowerCase() : caseMode; countEl.textContent = `${current.name} · ${si + 1}/${current.steps.length}`; titleEl.textContent = step.title; textEl.textContent = textOf(step); if (tipEl) { tipEl.hidden = !step.tip; tipEl.textContent = step.tip ? '⇄ What changed: ' + step.tip : ''; } [...dotsEl.children].forEach((d, i) => d.className = i < si ? 'done' : i === si ? 'now' : ''); if (!k) {} else if (cam.mode === 'follow') aim(focusRect(step)); else if (cam.mode !== 'overview') { cam.mode = 'follow'; viewBtn.textContent = 'Overview'; aim(focusRect(step)); } }
   if (si !== stepShownCard) { stepShownCard = si; syncCardSpace(); if (k && cam.mode === 'follow') aim(focusRect(step)); }
+  if (lookEl) { const finished = t >= starts[si] + step.dur - 2; lookAt = !live || ended ? -1 : finished ? (si < current.steps.length - 1 ? si + 1 : -1) : gaze !== si && (gaze === -1 || gaze === gazeApplied) ? si : -1;
+    const say = lookAt < 0 ? '' : (finished ? 'Next: look at panel ' : 'Look at panel ') + two(lookAt + 1); if (lookEl.textContent !== say) { lookEl.textContent = say; lookEl.hidden = !say; syncCardSpace(); } }
   if (step.sound && playing && !soundDone) { soundDone = true; playSound(); }
   if (k) paintSections(ended ? current.steps.length : si); scene.update(ended ? current.steps.length : si, p, now);
   if (k) for (const s of Object.values(k.secs)) for (const f of s.flows) f.dots.forEach((d, i) => { if (s.state !== 'act') { d.setAttribute('opacity', 0); return; } const ph = (now / 1300 + i / f.dots.length) % 1, [x, y] = pointAt(f.pts, ph * f.L); d.setAttribute('cx', x.toFixed(1)); d.setAttribute('cy', y.toFixed(1)); d.setAttribute('opacity', Math.min(1, ph * 5, (1 - ph) * 5).toFixed(2)); });
