@@ -34,9 +34,13 @@ const STEPS = [
     red: 'Red: the watermark module drops out. Unlabelled copies fly out into every feed, harming the classmate and leaving viewers unsure what is real. [19,21]',
     tip: 'Labels and watermarks let people and platforms tell real from fake.' }
 ];
+const PANELS = [[60, 950, 515, 370], [590, 950, 515, 370], [1120, 950, 515, 370], [1120, 1335, 515, 380], [590, 1335, 515, 380], [60, 1335, 515, 380]];
 const steps = STEPS.map(s => ({ title: s.title, blue: s.blue, red: s.red, tip: s.tip, dur: 8600 }));
 return { cases: {
   name: 'Same workflow, two outcomes', input: 'A musician plays guitar in an MTR station', accent: COLOR.blue, modes: COLOR, spatial: true,
+  // The printed panels 01-06 in poster units (01-03 run left to right, 04-06 come back right to left). With a live camera,
+  // looking at panel N shows step N (ar-explain.js), so the two demos are followed panel by panel on the paper.
+  panels: PANELS,
   link: { href: '#citations', label: 'Check the sources ↗' }, steps,
   build(_, api) { return createScene(api); }
 } };
@@ -119,17 +123,18 @@ function createScene(api) {
   // Socket and link colours follow ComfyUI's defaults by data type; node colours use ComfyUI's colour presets.
   const TYPE = { CLIP: '#FFD500', CONDITIONING: '#FFA931', MODEL: '#B39DDB', IMAGE: '#64B5F6', MASK: '#81C784', AUDIO: '#4EC9B0', STRING: '#A5D6A7' };
   const PAL = { default: ['#353535', '#222222'], green: ['#353f35', '#223322'], red: ['#553333', '#332222'], cyan: ['#335555', '#223333'], purple: ['#553355', '#332233'] };
-  // Node layout in poster units over the printed workflow (x 48-1640, y 900-1740); h = height above the paper.
+  // Node layout in poster units; h = height above the paper. Each step's nodes float over that step's printed panel
+  // (PANELS), so the active nodes are where the viewer is looking.
   const DEF = {
-    prompt: { x: 210, y: 1030, h: 200, w: 300, hh: 230, step: 0, pal: m => m === 'red' ? 'red' : 'green', title: () => 'CLIP Text Encode (Prompt)', ins: [['clip', 'CLIP']], outs: [['CONDITIONING', 'CONDITIONING']] },
-    face: { x: 210, y: 1500, h: 200, w: 260, hh: 300, step: 1, pal: () => 'default', title: () => 'Load Image', ins: [], outs: [['IMAGE', 'IMAGE'], ['MASK', 'MASK']] },
-    safety: { x: 565, y: 1030, h: 260, w: 280, hh: 170, step: 2, censor: true, pal: () => 'green', title: () => '🛡 Safety Filter', ins: [['conditioning', 'CONDITIONING']], outs: [['CONDITIONING', 'CONDITIONING']] },
-    consent: { x: 565, y: 1500, h: 260, w: 280, hh: 170, step: 1, censor: true, pal: () => 'green', title: () => '🛡 Consent Check', ins: [['image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
-    sampler: { x: 915, y: 1265, h: 330, w: 320, hh: 380, step: 2, pal: () => 'default', title: () => 'KSampler (Wan 2.2)', ins: [['model', 'MODEL'], ['positive', 'CONDITIONING'], ['start_image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
-    audio: { x: 1235, y: 965, h: 260, w: 270, hh: 180, step: 3, pal: m => m === 'red' ? 'red' : 'cyan', title: m => m === 'red' ? 'Voice Clone' : 'MusicGen', ins: [], outs: [['AUDIO', 'AUDIO']] },
-    money: { x: 1235, y: 1255, h: 280, w: 270, hh: 190, step: 4, pal: m => m === 'red' ? 'red' : 'purple', title: m => m === 'red' ? 'Repeat Batch' : 'Credits + AI Disclosure', ins: [], outs: [['metadata', 'STRING']] },
-    water: { x: 1235, y: 1545, h: 300, w: 270, hh: 170, step: 5, censor: true, pal: () => 'green', title: () => '🛡 AI Label + Watermark', ins: [['images', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
-    out: { x: 1530, y: 1265, h: 360, w: 240, hh: 330, step: 5, pal: () => 'default', title: () => 'Save Video', ins: [['images', 'IMAGE'], ['audio', 'AUDIO'], ['metadata', 'STRING']], outs: [] }
+    prompt: { x: 317, y: 1135, h: 200, w: 300, hh: 230, step: 0, pal: m => m === 'red' ? 'red' : 'green', title: () => 'CLIP Text Encode (Prompt)', ins: [['clip', 'CLIP']], outs: [['CONDITIONING', 'CONDITIONING']] },
+    face: { x: 715, y: 1160, h: 200, w: 260, hh: 300, step: 1, pal: () => 'default', title: () => 'Load Image', ins: [], outs: [['IMAGE', 'IMAGE'], ['MASK', 'MASK']] },
+    safety: { x: 1200, y: 1010, h: 260, w: 280, hh: 170, step: 2, censor: true, pal: () => 'green', title: () => '🛡 Safety Filter', ins: [['conditioning', 'CONDITIONING']], outs: [['CONDITIONING', 'CONDITIONING']] },
+    consent: { x: 980, y: 1215, h: 260, w: 280, hh: 170, step: 1, censor: true, pal: () => 'green', title: () => '🛡 Consent Check', ins: [['image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
+    sampler: { x: 1490, y: 1200, h: 330, w: 320, hh: 380, step: 2, pal: () => 'default', title: () => 'KSampler (Wan 2.2)', ins: [['model', 'MODEL'], ['positive', 'CONDITIONING'], ['start_image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
+    audio: { x: 1300, y: 1570, h: 260, w: 270, hh: 180, step: 3, pal: m => m === 'red' ? 'red' : 'cyan', title: m => m === 'red' ? 'Voice Clone' : 'MusicGen', ins: [], outs: [['AUDIO', 'AUDIO']] },
+    money: { x: 848, y: 1540, h: 280, w: 270, hh: 190, step: 4, pal: m => m === 'red' ? 'red' : 'purple', title: m => m === 'red' ? 'Repeat Batch' : 'Credits + AI Disclosure', ins: [], outs: [['metadata', 'STRING']] },
+    water: { x: 205, y: 1565, h: 300, w: 270, hh: 170, step: 5, censor: true, pal: () => 'green', title: () => '🛡 AI Label + Watermark', ins: [['images', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
+    out: { x: 455, y: 1525, h: 360, w: 240, hh: 330, step: 5, pal: () => 'default', title: () => 'Save Video', ins: [['images', 'IMAGE'], ['audio', 'AUDIO'], ['metadata', 'STRING']], outs: [] }
   };
   // [from node, output slot, to node, input slot]
   const LINKS = [['prompt', 0, 'safety', 0], ['safety', 0, 'sampler', 1], ['face', 0, 'consent', 0], ['consent', 0, 'sampler', 2], ['sampler', 0, 'water', 0], ['water', 0, 'out', 0], ['audio', 0, 'out', 1], ['money', 0, 'out', 2]];
@@ -168,7 +173,8 @@ function createScene(api) {
     // links from output socket to input socket, as tubes with ComfyUI's horizontal bezier tangents,
     // plus red bypass links used when a safety module drops out
     const sock = (id, out, k) => { const d = DEF[id]; return P(d.x + (out ? 1 : -1) * (d.w / 2 - 9), d.y - d.hh / 2 + slotY(k), d.h + 8.5); };
-    function link([a, ai, b, bi], color) { const pa = sock(a, true, ai), pb = sock(b, false, bi), k = Math.max(70, Math.abs(pb.x - pa.x) * .5), lift = new T.Vector3(0, 0, 18);
+    // A link that runs back to the left (the bottom row of panels reads right to left) arcs up and over the nodes in between.
+    function link([a, ai, b, bi], color) { const pa = sock(a, true, ai), pb = sock(b, false, bi), back = pb.x < pa.x, k = back ? 110 : Math.max(70, Math.abs(pb.x - pa.x) * .5), lift = new T.Vector3(0, 0, back ? 110 + (pa.x - pb.x) * .12 : 18);
       const curve = new T.CubicBezierCurve3(pa, pa.clone().add(new T.Vector3(k, 0, 0)).add(lift), pb.clone().add(new T.Vector3(-k, 0, 0)).add(lift), pb);
       const mat = keep(new T.MeshBasicMaterial({ color, transparent: true, opacity: .8 })), mesh = new T.Mesh(keep(new T.TubeGeometry(curve, 48, 3.2, 8, false)), mat); root.add(mesh);
       const dots = Array.from({ length: 3 }, () => { const m = new T.Mesh(keep(new T.SphereGeometry(7, 12, 10)), keep(new T.MeshBasicMaterial({ color: 0xffffff, transparent: true }))); root.add(m); return m; });
@@ -181,7 +187,9 @@ function createScene(api) {
       return { m, j, th: rand() * Math.PI * 2, rad: .35 + rand() * .9, z: .2 + rand() * 1.2, w: (rand() - .5) * .9, spin: [(rand() - .5) * 3, (rand() - .5) * 3, (rand() - .5) * 2] }; });
     const film = (() => { const c = document.createElement('canvas'); c.width = 300; c.height = 190; const g = c.getContext('2d'); const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace;
       const m = new T.Mesh(keep(new T.BoxGeometry(240, 152, 6)), [copySide, copySide, copySide, copySide, keep(new T.MeshBasicMaterial({ map: tex, transparent: true })), copySide]); m.visible = false; root.add(m); return { c, g, tex, m, key: '' }; })();
-    return { T, renderer, scene, camera, root, P, nodes, wires, bypass, copies, film, frameLine, disposables };
+    // outlines of the printed panels on the paper: the one to look at next pulses
+    const panelLines = PANELS.map(([x, y, w, h]) => { const l = new T.LineLoop(keep(new T.BufferGeometry().setFromPoints([P(x, y, 2), P(x + w, y, 2), P(x + w, y + h, 2), P(x, y + h, 2)])), keep(new T.LineBasicMaterial({ color: COLOR.blue, transparent: true, opacity: 0 }))); l.visible = false; root.add(l); return l; });
+    return { T, renderer, scene, camera, root, P, nodes, wires, bypass, copies, film, frameLine, panelLines, disposables };
   }
 
   // ---------- pose: homography -> camera ----------
@@ -314,6 +322,7 @@ function createScene(api) {
     const fut2 = w => !ended && Math.max(DEF[w.a].step, DEF[w.b].step) > idx;
     const ps = updateCamera(R), dt = lastNow ? Math.min(100, now - lastNow) : 16; lastNow = now; canvas.style.opacity = ps ? '1' : '0'; if (!ps) return; frameView(R, ps, dt);
     R.frameLine.material.color.copy(col);
+    const look = api.look ? api.look() : -1; R.panelLines.forEach((l, i) => { const on = i === look || (!ended && i === idx); l.visible = on; if (on) { l.material.color.copy(col); l.material.opacity = i === look ? (reduce ? .9 : .45 + .45 * Math.sin(now / 180)) : .5; } });
     // which links are live: a link into a fallen module is cut; its bypass appears once the module is gone
     const cutOf = l => [l.a, l.b].some(id => fallOf(id, mode, idx, p, ended) > .15), live = R.wires.filter(w => !cutOf(w)).concat(Object.entries(R.bypass).filter(([c]) => fallOf(c, mode, idx, p, ended) > .5).map(([, w]) => w));
     const conn = live.map(w => w.a + 'o' + w.ai + ',' + w.b + 'i' + w.bi).join(',');
@@ -338,18 +347,18 @@ function createScene(api) {
     for (const [c, w] of Object.entries(R.bypass)) { const on = fallOf(c, mode, idx, p, ended) > .5; w.mesh.visible = on;
       w.dots.forEach((m, i) => { m.visible = on && (ended || idx >= DEF[c].step); if (m.visible) { m.material.color.set(COLOR.red); m.position.copy(w.curve.getPointAt((now / 1000 + i / 3) % 1)); } }); }
     // Red: copies stack up at step 05, then burst out and fly everywhere at step 06.
-    const O = DEF.out, red = mode === 'red';
+    const O = DEF.out, M = DEF.money, red = mode === 'red';
     if (ended && !endAt) endAt = now; if (!ended) endAt = 0;
     const burstT = red ? (ended ? 8.6 * .7 + (now - endAt) / 1000 : idx === 5 ? (p - .3) * 8.6 : -1) : -1, stackN = red && idx === 4 && !ended ? Math.floor(ease(p) * 14) : 0, spin = reduce ? 0 : 1;
     R.copies.forEach(c => {
       if (burstT > 0) { const k = 1 - Math.exp(-burstT / 1.6), th = c.th + spin * burstT * c.w * .35, r = 60 + c.rad * 1100 * k;
         c.m.visible = true; c.m.position.copy(P(O.x + Math.cos(th) * r, O.y - 200 * k + Math.sin(th) * r * .8, O.h * (1 - k * .3) + c.z * 650 * k + spin * Math.sin(burstT * 1.3 + c.j) * 30));
         c.m.rotation.set(c.spin[0] * burstT * spin, c.spin[1] * burstT * spin, c.spin[2] * burstT * spin * .5); c.m.scale.setScalar(Math.min(1, burstT * 2));
-      } else if (c.j < stackN) { c.m.visible = true; c.m.position.copy(P(O.x - 20 + (c.j % 2) * 14, O.y - 210 - c.j * 6, O.h - 40 + c.j * 9)); c.m.rotation.set(0, 0, .08 * (c.j % 3 - 1)); c.m.scale.setScalar(.8); }
+      } else if (c.j < stackN) { c.m.visible = true; c.m.position.copy(P(M.x - 20 + (c.j % 2) * 14, M.y - 165 - c.j * 6, M.h - 40 + c.j * 9)); c.m.rotation.set(0, 0, .08 * (c.j % 3 - 1)); c.m.scale.setScalar(.8); }
       else c.m.visible = false; });
     // Blue: one credited, watermarked film is released and glides down onto the paper.
     const fp = mode === 'blue' ? (ended ? 1 : idx === 5 ? ease(clamp((p - .55) / .4)) : 0) : 0, fm = R.film;
-    fm.m.visible = fp > 0; if (fp > 0) { fm.m.position.copy(P(lerp(O.x, 1420, fp), lerp(O.y + 40, 1690, fp), lerp(O.h - 60, 6, fp))); fm.m.rotation.set(0, 0, lerp(0, -.12, fp));
+    fm.m.visible = fp > 0; if (fp > 0) { fm.m.position.copy(P(lerp(O.x, 300, fp), lerp(O.y + 40, 1690, fp), lerp(O.h - 60, 6, fp))); fm.m.rotation.set(0, 0, lerp(0, -.12, fp));
       if (fm.key !== String(frameReady)) { fm.key = String(frameReady); fm.g.fillStyle = '#10151c'; fm.g.fillRect(0, 0, 300, 190); drawScene(fm.g, 8, 8, 284, 140, 1, false, false); fm.g.fillStyle = '#9fe8b5'; fm.g.font = `700 15px ${FONT}`; fm.g.fillText('AI-generated · credited · watermarked', 12, 176); fm.tex.needsUpdate = true; } }
     R.renderer.render(R.scene, R.camera);
   }

@@ -265,3 +265,13 @@
 #scanner .ar-mode button[data-mode=blue][aria-pressed=true]{background:#6cb6ff;color:#08203a}
 #scanner .ar-mode button[data-mode=red][aria-pressed=true]{background:#ff6b6b;color:#3a0808}
 @media(max-height:500px) and (min-aspect-ratio:4/3){#scanner.spatial .ar-bar,#scanner.spatial .ar-toast{display:none}}
+
+/* Blue / Red follows the printed panels 01-06: this line says which panel to look at */
+.ar-xp-look{margin:6px 0 0;font-size:14px;font-weight:700;color:#fff}
+.ar-xp-look[hidden]{display:none}
+#scanner[data-case=blue] .ar-xp-look{color:#bfe0ff}
+#scanner[data-case=red] .ar-xp-look{color:#ffc4c4}
+/* Blue / Red keeps the view clear for the floating nodes: no status bar, a short card */
+#scanner.spatial .ar-bar{display:none}
+#scanner.spatial .ar-explain-card:not(.ar-open) .ar-xp-head{display:none}
+#scanner.spatial .ar-explain-card:not(.ar-open) .ar-mode{margin:0}
