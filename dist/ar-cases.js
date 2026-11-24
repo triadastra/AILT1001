@@ -34,6 +34,16 @@ const STEPS = [
     red: 'Red: the watermark module drops out. Unlabelled copies fly out into every feed, harming the classmate and leaving viewers unsure what is real. [19,21]',
     tip: 'Labels and watermarks let people and platforms tell real from fake.' }
 ];
+// One line per step, shown in the AR itself on a ComfyUI-style note beside that step's nodes, so the reason is visible
+// without opening the caption. Each line restates its step's caption above (same sources).
+const WHY = [
+  { blue: 'An original, fictional scene. People review it before anything is generated.', red: 'Fiction is presented as real news about a real person.' },
+  { blue: 'A synthetic face, or an actor who agreed.', red: 'A real person’s face is used without their consent.' },
+  { blue: 'The filter removes the dangerous stunt. The scene stays fiction.', red: 'A realistic dangerous stunt with a real face. Children may copy it.' },
+  { blue: 'Original music. A human editor makes the cut.', red: 'A cloned voice and a fake news anchor make it look real.' },
+  { blue: 'Credited, and marked as AI-altered.', red: '100 near-identical clips, made only to farm views.' },
+  { blue: 'Labelled and watermarked, so anyone can check.', red: 'No label and no watermark. Viewers cannot tell it is AI.' }
+];
 const PANELS = [[60, 950, 515, 370], [590, 950, 515, 370], [1120, 950, 515, 370], [1120, 1335, 515, 380], [590, 1335, 515, 380], [60, 1335, 515, 380]];
 const steps = STEPS.map(s => ({ title: s.title, blue: s.blue, red: s.red, tip: s.tip, dur: 8600 }));
 return { cases: {
@@ -136,6 +146,8 @@ function createScene(api) {
     water: { x: 205, y: 1565, h: 300, w: 270, hh: 170, step: 5, censor: true, pal: () => 'green', title: () => '🛡 AI Label + Watermark', ins: [['images', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
     out: { x: 455, y: 1525, h: 360, w: 240, hh: 330, step: 5, pal: () => 'default', title: () => 'Save Video', ins: [['images', 'IMAGE'], ['audio', 'AUDIO'], ['metadata', 'STRING']], outs: [] }
   };
+  // The "why" notes (WHY above), one per step, in the free corner of that step's panel: x, y, height above the paper, width, height.
+  const NOTE_AT = [[317, 1312, 250, 300, 104], [975, 1040, 300, 244, 136], [1212, 1236, 300, 226, 150], [1540, 1570, 300, 196, 190], [848, 1704, 310, 300, 104], [205, 1408, 330, 262, 124]];
   // [from node, output slot, to node, input slot]
   const LINKS = [['prompt', 0, 'safety', 0], ['safety', 0, 'sampler', 1], ['face', 0, 'consent', 0], ['consent', 0, 'sampler', 2], ['sampler', 0, 'water', 0], ['water', 0, 'out', 0], ['audio', 0, 'out', 1], ['money', 0, 'out', 2]];
   const BYPASS = { safety: ['prompt', 0, 'sampler', 1], consent: ['face', 0, 'sampler', 2], water: ['sampler', 0, 'out', 0] };
@@ -170,6 +182,11 @@ function createScene(api) {
       const stemMat = keep(new T.LineDashedMaterial({ color: 0xffffff, dashSize: 10, gapSize: 10, transparent: true, opacity: .35 })), stem = new T.Line(keep(new T.BufferGeometry().setFromPoints([P(d.x, d.y, 0), P(d.x, d.y, d.h - 8)])), stemMat); stem.computeLineDistances(); root.add(stem);
       nodes[id] = { id, d, c, g: c.getContext('2d'), tex, side, front, edgeMat, grp, sh, shMat, stem, stemMat, key: '' };
     }
+    const notes = NOTE_AT.map(([x, y, h, w, hh], i) => { const c = document.createElement('canvas'); c.width = Math.round(w * TEX); c.height = Math.round(hh * TEX);
+      const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+      const side = keep(new T.MeshStandardMaterial({ color: 0x1a2230, metalness: .35, roughness: .4, transparent: true })), front = keep(new T.MeshBasicMaterial({ map: tex, transparent: true }));
+      const geo = keep(new T.BoxGeometry(w, hh, 10)), edgeMat = keep(new T.LineBasicMaterial({ color: 0xffffff, transparent: true })), grp = new T.Group(); grp.add(new T.Mesh(geo, [side, side, side, side, front, side]), new T.LineSegments(keep(new T.EdgesGeometry(geo)), edgeMat));
+      grp.position.copy(P(x, y, h)); grp.visible = false; root.add(grp); return { i, w, hh, c, g: c.getContext('2d'), tex, side, front, edgeMat, grp, key: '' }; });
     // links from output socket to input socket, as tubes with ComfyUI's horizontal bezier tangents,
     // plus red bypass links used when a safety module drops out
     const sock = (id, out, k) => { const d = DEF[id]; return P(d.x + (out ? 1 : -1) * (d.w / 2 - 9), d.y - d.hh / 2 + slotY(k), d.h + 8.5); };
@@ -189,7 +206,7 @@ function createScene(api) {
       const m = new T.Mesh(keep(new T.BoxGeometry(240, 152, 6)), [copySide, copySide, copySide, copySide, keep(new T.MeshBasicMaterial({ map: tex, transparent: true })), copySide]); m.visible = false; root.add(m); return { c, g, tex, m, key: '' }; })();
     // outlines of the printed panels on the paper: the one to look at next pulses
     const panelLines = PANELS.map(([x, y, w, h]) => { const l = new T.LineLoop(keep(new T.BufferGeometry().setFromPoints([P(x, y, 2), P(x + w, y, 2), P(x + w, y + h, 2), P(x, y + h, 2)])), keep(new T.LineBasicMaterial({ color: COLOR.blue, transparent: true, opacity: 0 }))); l.visible = false; root.add(l); return l; });
-    return { T, renderer, scene, camera, root, P, nodes, wires, bypass, copies, film, frameLine, panelLines, disposables };
+    return { T, renderer, scene, camera, root, P, nodes, notes, wires, bypass, copies, film, frameLine, panelLines, disposables };
   }
 
   // ---------- pose: homography -> camera ----------
@@ -264,7 +281,7 @@ function createScene(api) {
   }
   function drawNode(n, mode, idx, p, ended, now, fall, conn) {
     const { d, g, c } = n, done = ended || idx > d.step, act = !ended && idx === d.step, red = mode === 'red', removed = fall > .5;
-    let key = mode + idx + (ended ? 'e' : '') + (removed ? 'f' : '') + (act ? Math.floor(now / 70) : '') + (ended && n.id === 'audio' ? Math.floor(now / 70) : '') + (frameReady ? 'r' : '') + conn;
+    let key = mode + idx + (ended ? 'e' : '') + (removed ? 'f' : '') + (act && p > .22 ? 'w' : '') + (act ? Math.floor(now / 70) : '') + (ended && n.id === 'audio' ? Math.floor(now / 70) : '') + (frameReady ? 'r' : '') + conn;
     if (n.id === 'prompt') key = mode + typed(mode, done ? 1 : act ? p : 0).length + (act ? Math.floor(now / 450) % 2 : '') + conn + idx;
     if (key === n.key || !g || !g.fillText) return; n.key = key;
     const W = d.w, H = d.hh; g.setTransform(TEX, 0, 0, TEX, 0, 0); g.clearRect(0, 0, W, H);
@@ -275,6 +292,8 @@ function createScene(api) {
     g.fillStyle = removed ? '#ff6b6b' : '#8a8a8a'; g.beginPath(); g.arc(13, HEAD / 2, 4.5, 0, Math.PI * 2); g.fill();
     g.font = `600 12.5px ${FONT}`; g.fillStyle = '#e6e6e6'; g.fillText(d.title(mode), 25, HEAD / 2 + 4.4);
     if (act) { g.fillStyle = '#7ff0b0'; g.fillRect(3, HEAD - 2.5, (W - 6) * clamp(p), 2.5); } // executing progress, as ComfyUI shows it
+    // Red: the nodes doing the harm get ComfyUI's red error outline and a warning mark in the title bar
+    if (red && !d.censor && (done || (act && p > .22))) { g.lineWidth = 3; g.strokeStyle = '#ff4d4d'; rr(g, 2.5, 2.5, W - 5, H - 5, 7); g.stroke(); g.font = `800 13px ${FONT}`; g.fillStyle = '#ff6b6b'; g.textAlign = 'end'; g.fillText('⚠', W - 9, HEAD / 2 + 4.6); g.textAlign = 'start'; }
     // input sockets on the left, outputs on the right; filled when linked, hollow when not
     const dot = (x, y, col, on) => { g.beginPath(); g.arc(x, y, 4.6, 0, Math.PI * 2); if (on) { g.fillStyle = col; g.fill(); } else { g.lineWidth = 1.6; g.strokeStyle = col; g.stroke(); } };
     g.font = `500 10.5px ${FONT}`;
@@ -316,6 +335,16 @@ function createScene(api) {
     }
     n.tex.needsUpdate = true;
   }
+  // A ComfyUI note node in the red or green node colour: the one-line reason this step is harmful, or fine.
+  function drawNote(n, mode) {
+    if (n.key === mode || !n.g || !n.g.fillText) return; n.key = mode; const g = n.g, W = n.w, H = n.hh, red = mode === 'red', [body, title] = PAL[red ? 'red' : 'green'];
+    g.setTransform(TEX, 0, 0, TEX, 0, 0); g.clearRect(0, 0, W, H); rr(g, 1, 1, W - 2, H - 2, 8); g.fillStyle = body; g.fill();
+    g.save(); rr(g, 1, 1, W - 2, H - 2, 8); g.clip(); g.fillStyle = title; g.fillRect(0, 0, W, HEAD); g.restore();
+    g.fillStyle = red ? '#ff6b6b' : '#7ff0b0'; g.beginPath(); g.arc(13, HEAD / 2, 4.5, 0, Math.PI * 2); g.fill();
+    g.font = `700 12.5px ${FONT}`; g.fillStyle = red ? '#ffb3b3' : '#b8f5cf'; g.textAlign = 'start'; g.fillText(red ? '⚠ Why this is harmful' : '✓ Why this is fine', 25, HEAD / 2 + 4.4);
+    rr(g, 7, HEAD + 6, W - 14, H - HEAD - 13, 6); g.fillStyle = '#1c1c1c'; g.fill();
+    g.font = `600 14px ${FONT}`; wrapText(g, WHY[n.i][mode], 16, HEAD + 26, W - 32, 18, () => '#f2f2f2'); n.tex.needsUpdate = true;
+  }
   function update(si, p, now) {
     if (!R || disposed) return;
     const mode = api.mode(), ended = si >= STEPS.length, idx = Math.min(si, STEPS.length - 1), T = R.T, P = R.P, col = new T.Color(COLOR[mode]);
@@ -339,6 +368,9 @@ function createScene(api) {
       const z = n.grp.position.z; n.sh.position.copy(P(d.x + ff * 90 * side + z * .1, d.y + ff * 120 + z * .14, .5)); n.shMat.opacity = fut ? .2 : .5 * clamp(1 - z / 900) + .15;
       n.stem.visible = fall === 0; n.stemMat.opacity = fut ? .15 : .35;
     }
+    // the step's note appears once its action is under way, and stays for the steps already done
+    for (const n of R.notes) { const a = ended || idx > n.i ? 1 : idx === n.i ? clamp((p - .22) / .18) : 0; n.grp.visible = a > 0; if (!a) continue;
+      drawNote(n, mode); n.front.opacity = a; n.side.opacity = a * .95; n.edgeMat.color.set(COLOR[mode]); n.edgeMat.opacity = a; n.grp.scale.setScalar(reduce ? 1 : .9 + .1 * ease(a)); }
     // links: type-coloured as in ComfyUI; the step's links carry pulses; red bypass links replace fallen modules
     const flows = new Set(FLOW[idx]);
     for (const w of R.wires) { const cut = cutOf(w), on = flows.has(w.key) && !cut && !ended;
