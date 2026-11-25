@@ -10,11 +10,11 @@ window.PosterCases = ({ clamp, ease, lerp }) => {
 const COLOR = { blue: '#6cb6ff', red: '#ff6b6b' };
 const STEPS = [
   { title: '01 · Write the story',
-    blue: 'Blue: the prompt describes an original scene, “a musician plays guitar in an MTR station”. The team reviews it before anything is generated. [1]',
+    blue: 'Blue: the prompt is the one printed on the poster: a street musician playing guitar in a retro 1970s-style subway station. The team reviews it before anything is generated. [1,3]',
     red: 'Red: same prompt box, same model, but the words change: a real classmate’s face, a fake “breaking news” framing and a dangerous stunt. [21]',
     tip: 'Same tool. The goal changed: telling a story vs. passing fiction off as real.' },
   { title: '02 · Create visual assets',
-    blue: 'Blue: the image node loads a synthetic face (or an actor who agreed). The consent check stays plugged in and passes. [1,3]',
+    blue: 'Blue: the image node loads the armoured figure printed on the poster, a fictional character, as the first frame. No real person is shown, so the consent check passes. [1,3]',
     red: 'Red: the face is a classmate’s selfie, taken without asking. The consent check is unplugged and drops out of the workflow. [20]',
     tip: 'Whose face is it? A real person’s likeness needs their consent.' },
   { title: '03 · Generate the video',
@@ -22,7 +22,7 @@ const STEPS = [
     red: 'Red: the safety filter drops out too. The sampler renders the stunt with the real face, shown blurred here. Our proposal worries children may copy stunts like this. [21]',
     tip: 'Fiction is fine. Realistic danger featuring a real person is not.' },
   { title: '04 · Add sound & edit',
-    blue: 'Blue: an audio model writes original guitar music, and a human editor lines up picture, sound and captions. [4,13]',
+    blue: 'Blue: an audio model writes original guitar music, and a human editor lines up picture, sound and captions in an editor such as DaVinci Resolve, as on the poster. [4,13]',
     red: 'Red: the audio node clones the classmate’s voice, and an AI “news anchor” presents the clip as if it really happened. [20,21]',
     tip: 'Cloning a real voice and faking a news format turns an edit into deception.' },
   { title: '05 · Plan monetisation',
@@ -34,10 +34,20 @@ const STEPS = [
     red: 'Red: the watermark module drops out. Unlabelled copies fly out into every feed, harming the classmate and leaving viewers unsure what is real. [19,21]',
     tip: 'Labels and watermarks let people and platforms tell real from fake.' }
 ];
+// One line per step, shown in the AR itself on a ComfyUI-style note beside that step's nodes, so the reason is visible
+// without opening the caption. Each line restates its step's caption above (same sources).
+const WHY = [
+  { blue: 'An original, fictional scene. People review it before anything is generated.', red: 'Fiction is presented as real news about a real person.' },
+  { blue: 'A fictional character. No real person’s likeness is used.', red: 'A real person’s face is used without their consent.' },
+  { blue: 'The filter removes the dangerous stunt. The scene stays fiction.', red: 'A realistic dangerous stunt with a real face. Children may copy it.' },
+  { blue: 'Original music. A human editor makes the cut.', red: 'A cloned voice and a fake news anchor make it look real.' },
+  { blue: 'Credited, and marked as AI-altered.', red: '100 near-identical clips, made only to farm views.' },
+  { blue: 'Labelled and watermarked, so anyone can check.', red: 'No label and no watermark. Viewers cannot tell it is AI.' }
+];
 const PANELS = [[60, 950, 515, 370], [590, 950, 515, 370], [1120, 950, 515, 370], [1120, 1335, 515, 380], [590, 1335, 515, 380], [60, 1335, 515, 380]];
 const steps = STEPS.map(s => ({ title: s.title, blue: s.blue, red: s.red, tip: s.tip, dur: 8600 }));
 return { cases: {
-  name: 'Same workflow, two outcomes', input: 'A musician plays guitar in an MTR station', accent: COLOR.blue, modes: COLOR, spatial: true,
+  name: 'Same workflow, two outcomes', input: 'A street musician in a 1970s-style subway station', accent: COLOR.blue, modes: COLOR, spatial: true,
   // The printed panels 01-06 in poster units (01-03 run left to right, 04-06 come back right to left). With a live camera,
   // looking at panel N shows step N (ar-explain.js), so the two demos are followed panel by panel on the paper.
   panels: PANELS,
@@ -78,6 +88,15 @@ function createScene(api) {
   // Blue's picture: the subway guitarist from the poster's own KSampler screenshot (official Wan 2.2 example, source [3]).
   const frame = new Image(); frame.src = 'assets/cite/ksampler.jpg'; let frameReady = false; (frame.decode ? frame.decode() : Promise.reject()).then(() => { frameReady = true; }).catch(() => {});
   const CROP = [279, 70, 255, 146];
+  // The other panels' pictures, exactly as cropped on the poster (credits: REFERENCES-AND-IMAGE-CREDITS.md). Each already carries its printed source label, e.g. “Image [17]”.
+  const PICS = { armoured: ['assets/cite/armoured.jpg'], davinci: ['assets/cite/davinci.jpg'], toysrus: ['assets/cite/toysrus.jpg'], frost: ['assets/cite/frost.jpg'] }; let picsReady = 0;
+  for (const k in PICS) { const im = new Image(), entry = PICS[k]; entry.push(im, false); im.src = entry[0]; (im.decode ? im.decode() : Promise.reject()).then(() => { entry[2] = true; picsReady++; }).catch(() => {}); }
+  // Draw a poster picture to fill a box (centre crop).
+  function drawPic(g, name, x, y, w, h, alpha = 1) {
+    const [, im, ok] = PICS[name]; g.save(); rr(g, x, y, w, h, 6); g.clip(); g.fillStyle = '#2a3038'; g.fillRect(x, y, w, h);
+    if (ok) { const iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height, k = Math.max(w / iw, h / ih), sw = w / k, sh = h / k; g.globalAlpha = alpha; g.drawImage(im, (iw - sw) / 2, (ih - sh) / 2, sw, sh, x, y, w, h); g.globalAlpha = 1; }
+    g.restore();
+  }
   const noise = (() => { const c = document.createElement('canvas'); c.width = 96; c.height = 54; const g = c.getContext && c.getContext('2d'); if (!g || !g.createImageData) return c; const d = g.createImageData(96, 54); for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = v; d.data[i + 1] = v * .9 + Math.random() * 25; d.data[i + 2] = v; d.data[i + 3] = 255; } g.putImageData(d, 0, 0); return c; })();
   // Red's picture is deliberately a different image: a fake "breaking news" stunt, drawn in code
   // (a figure with the loaded face leaping between two moving trains). It is only ever shown as a mosaic.
@@ -108,34 +127,35 @@ function createScene(api) {
   }
 
   // Text in the prompt node, typed over time.
-  const BLUE_PROMPT = 'A musician plays guitar in an MTR station. Original character, warm 1970s film look.';
-  const RED_PROMPT = 'Use this face: my classmate. Make it look like REAL breaking news. He jumps between moving trains.';
-  const BAD = /face|classmate|real|breaking|news|jumps|trains/i;
+  // Blue types the prompt printed in panel 01 (ComfyUI's Wan 2.2 example, source [3]). Red starts the same sentence, deletes the musician and writes the harm in.
+  const BLUE_PROMPT = 'Low contrast. In a retro 1970s-style subway station, a street musician plays in dim colors and rough textures. He wears an old jacket, playing guitar with focus.';
+  const RED_BASE = 'In a retro 1970s-style subway station, ', RED_FIRST = 'a street musician plays', RED_PROMPT = RED_BASE + 'my classmate (use his real face) jumps onto the tracks. Make it look like REAL breaking news.';
+  const BAD = /classmate|real|face|jumps|tracks|breaking|news/i;
   function typed(mode, p) {
     if (mode === 'blue') return BLUE_PROMPT.slice(0, Math.round(clamp(p / .8) * BLUE_PROMPT.length));
-    const start = 'A musician plays guitar';
+    const start = RED_BASE + RED_FIRST;
     if (p < .25) return start.slice(0, Math.round(p / .25 * start.length));
-    if (p < .36) return start.slice(0, Math.round((1 - (p - .25) / .11) * start.length));
-    return RED_PROMPT.slice(0, Math.round(clamp((p - .36) / .52) * RED_PROMPT.length));
+    if (p < .36) return start.slice(0, RED_BASE.length + Math.round((1 - (p - .25) / .11) * RED_FIRST.length));
+    return RED_PROMPT.slice(0, RED_BASE.length + Math.round(clamp((p - .36) / .52) * (RED_PROMPT.length - RED_BASE.length)));
   }
 
-  // ---------- 3D scene: ComfyUI-style nodes ----------
-  // Socket and link colours follow ComfyUI's defaults by data type; node colours use ComfyUI's colour presets.
   const TYPE = { CLIP: '#FFD500', CONDITIONING: '#FFA931', MODEL: '#B39DDB', IMAGE: '#64B5F6', MASK: '#81C784', AUDIO: '#4EC9B0', STRING: '#A5D6A7' };
   const PAL = { default: ['#353535', '#222222'], green: ['#353f35', '#223322'], red: ['#553333', '#332222'], cyan: ['#335555', '#223333'], purple: ['#553355', '#332233'] };
   // Node layout in poster units; h = height above the paper. Each step's nodes float over that step's printed panel
   // (PANELS), so the active nodes are where the viewer is looking.
   const DEF = {
-    prompt: { x: 317, y: 1135, h: 200, w: 300, hh: 230, step: 0, pal: m => m === 'red' ? 'red' : 'green', title: () => 'CLIP Text Encode (Prompt)', ins: [['clip', 'CLIP']], outs: [['CONDITIONING', 'CONDITIONING']] },
-    face: { x: 715, y: 1160, h: 200, w: 260, hh: 300, step: 1, pal: () => 'default', title: () => 'Load Image', ins: [], outs: [['IMAGE', 'IMAGE'], ['MASK', 'MASK']] },
-    safety: { x: 1200, y: 1010, h: 260, w: 280, hh: 170, step: 2, censor: true, pal: () => 'green', title: () => '🛡 Safety Filter', ins: [['conditioning', 'CONDITIONING']], outs: [['CONDITIONING', 'CONDITIONING']] },
-    consent: { x: 980, y: 1215, h: 260, w: 280, hh: 170, step: 1, censor: true, pal: () => 'green', title: () => '🛡 Consent Check', ins: [['image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
-    sampler: { x: 1490, y: 1200, h: 330, w: 320, hh: 380, step: 2, pal: () => 'default', title: () => 'KSampler (Wan 2.2)', ins: [['model', 'MODEL'], ['positive', 'CONDITIONING'], ['start_image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
-    audio: { x: 1300, y: 1570, h: 260, w: 270, hh: 180, step: 3, pal: m => m === 'red' ? 'red' : 'cyan', title: m => m === 'red' ? 'Voice Clone' : 'MusicGen', ins: [], outs: [['AUDIO', 'AUDIO']] },
-    money: { x: 848, y: 1540, h: 280, w: 270, hh: 190, step: 4, pal: m => m === 'red' ? 'red' : 'purple', title: m => m === 'red' ? 'Repeat Batch' : 'Credits + AI Disclosure', ins: [], outs: [['metadata', 'STRING']] },
-    water: { x: 205, y: 1565, h: 300, w: 270, hh: 170, step: 5, censor: true, pal: () => 'green', title: () => '🛡 AI Label + Watermark', ins: [['images', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
-    out: { x: 455, y: 1525, h: 360, w: 240, hh: 330, step: 5, pal: () => 'default', title: () => 'Save Video', ins: [['images', 'IMAGE'], ['audio', 'AUDIO'], ['metadata', 'STRING']], outs: [] }
+    prompt: { x: 300, y: 1105, h: 200, w: 400, hh: 240, step: 0, pal: m => m === 'red' ? 'red' : 'green', title: () => 'CLIP Text Encode (Positive Prompt)', ins: [['clip', 'CLIP']], outs: [['CONDITIONING', 'CONDITIONING']] },
+    face: { x: 735, y: 1150, h: 200, w: 290, hh: 250, step: 1, pal: () => 'default', title: () => 'Load Image', ins: [], outs: [['IMAGE', 'IMAGE'], ['MASK', 'MASK']] },
+    safety: { x: 1225, y: 1040, h: 260, w: 210, hh: 150, step: 2, censor: true, pal: () => 'green', title: () => '🛡 Safety Filter', ins: [['conditioning', 'CONDITIONING']], outs: [['CONDITIONING', 'CONDITIONING']] },
+    consent: { x: 1000, y: 1245, h: 260, w: 230, hh: 130, step: 1, censor: true, pal: () => 'green', title: () => '🛡 Consent Check', ins: [['image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
+    sampler: { x: 1482, y: 1165, h: 330, w: 300, hh: 360, step: 2, pal: () => 'default', title: () => 'KSampler (Wan 2.2)', ins: [['model', 'MODEL'], ['positive', 'CONDITIONING'], ['start_image', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
+    audio: { x: 1290, y: 1535, h: 260, w: 310, hh: 240, step: 3, pal: m => m === 'red' ? 'red' : 'cyan', title: m => m === 'red' ? 'Voice Clone + News Overlay' : 'Edit & Mix', ins: [], outs: [['AUDIO', 'AUDIO']] },
+    money: { x: 760, y: 1525, h: 280, w: 300, hh: 250, step: 4, pal: m => m === 'red' ? 'red' : 'purple', title: m => m === 'red' ? 'Repeat Batch' : 'Credits + AI Disclosure', ins: [], outs: [['metadata', 'STRING']] },
+    water: { x: 168, y: 1450, h: 300, w: 210, hh: 150, step: 5, censor: true, pal: () => 'green', title: () => '🛡 AI Label + Watermark', ins: [['images', 'IMAGE']], outs: [['IMAGE', 'IMAGE']] },
+    out: { x: 425, y: 1520, h: 360, w: 290, hh: 280, step: 5, pal: () => 'default', title: () => 'Save & Publish Video', ins: [['images', 'IMAGE'], ['audio', 'AUDIO'], ['metadata', 'STRING']], outs: [] }
   };
+  // The "why" notes (WHY above), one per step, in the free corner of that step's panel: x, y, height above the paper, width, height.
+  const NOTE_AT = [[317, 1300, 250, 300, 104], [1000, 1055, 300, 226, 150], [1225, 1225, 300, 206, 170], [1545, 1535, 300, 180, 200], [1012, 1525, 310, 180, 200], [168, 1620, 330, 206, 150]];
   // [from node, output slot, to node, input slot]
   const LINKS = [['prompt', 0, 'safety', 0], ['safety', 0, 'sampler', 1], ['face', 0, 'consent', 0], ['consent', 0, 'sampler', 2], ['sampler', 0, 'water', 0], ['water', 0, 'out', 0], ['audio', 0, 'out', 1], ['money', 0, 'out', 2]];
   const BYPASS = { safety: ['prompt', 0, 'sampler', 1], consent: ['face', 0, 'sampler', 2], water: ['sampler', 0, 'out', 0] };
@@ -170,6 +190,11 @@ function createScene(api) {
       const stemMat = keep(new T.LineDashedMaterial({ color: 0xffffff, dashSize: 10, gapSize: 10, transparent: true, opacity: .35 })), stem = new T.Line(keep(new T.BufferGeometry().setFromPoints([P(d.x, d.y, 0), P(d.x, d.y, d.h - 8)])), stemMat); stem.computeLineDistances(); root.add(stem);
       nodes[id] = { id, d, c, g: c.getContext('2d'), tex, side, front, edgeMat, grp, sh, shMat, stem, stemMat, key: '' };
     }
+    const notes = NOTE_AT.map(([x, y, h, w, hh], i) => { const c = document.createElement('canvas'); c.width = Math.round(w * TEX); c.height = Math.round(hh * TEX);
+      const tex = keep(new T.CanvasTexture(c)); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+      const side = keep(new T.MeshStandardMaterial({ color: 0x1a2230, metalness: .35, roughness: .4, transparent: true })), front = keep(new T.MeshBasicMaterial({ map: tex, transparent: true }));
+      const geo = keep(new T.BoxGeometry(w, hh, 10)), edgeMat = keep(new T.LineBasicMaterial({ color: 0xffffff, transparent: true })), grp = new T.Group(); grp.add(new T.Mesh(geo, [side, side, side, side, front, side]), new T.LineSegments(keep(new T.EdgesGeometry(geo)), edgeMat));
+      grp.position.copy(P(x, y, h)); grp.visible = false; root.add(grp); return { i, w, hh, c, g: c.getContext('2d'), tex, side, front, edgeMat, grp, key: '' }; });
     // links from output socket to input socket, as tubes with ComfyUI's horizontal bezier tangents,
     // plus red bypass links used when a safety module drops out
     const sock = (id, out, k) => { const d = DEF[id]; return P(d.x + (out ? 1 : -1) * (d.w / 2 - 9), d.y - d.hh / 2 + slotY(k), d.h + 8.5); };
@@ -189,7 +214,7 @@ function createScene(api) {
       const m = new T.Mesh(keep(new T.BoxGeometry(240, 152, 6)), [copySide, copySide, copySide, copySide, keep(new T.MeshBasicMaterial({ map: tex, transparent: true })), copySide]); m.visible = false; root.add(m); return { c, g, tex, m, key: '' }; })();
     // outlines of the printed panels on the paper: the one to look at next pulses
     const panelLines = PANELS.map(([x, y, w, h]) => { const l = new T.LineLoop(keep(new T.BufferGeometry().setFromPoints([P(x, y, 2), P(x + w, y, 2), P(x + w, y + h, 2), P(x, y + h, 2)])), keep(new T.LineBasicMaterial({ color: COLOR.blue, transparent: true, opacity: 0 }))); l.visible = false; root.add(l); return l; });
-    return { T, renderer, scene, camera, root, P, nodes, wires, bypass, copies, film, frameLine, panelLines, disposables };
+    return { T, renderer, scene, camera, root, P, nodes, notes, wires, bypass, copies, film, frameLine, panelLines, disposables };
   }
 
   // ---------- pose: homography -> camera ----------
@@ -251,12 +276,12 @@ function createScene(api) {
   function widgetsOf(id, mode, idx, p, ended) {
     const red = mode === 'red', done = ended || idx > DEF[id].step, act = !ended && idx === DEF[id].step;
     switch (id) {
-      case 'face': return [['image', red ? 'classmate_selfie.jpg' : 'synthetic_face.png', 'combo']];
+      case 'face': return [['image', red ? 'classmate_selfie.jpg' : 'armoured_figure.png', 'combo']];
       case 'safety': return [['block', 'real people, stunts', 'combo'], ['strength', 'strict', 'combo']];
       case 'consent': return [['require_consent', 'true', 'toggle']];
-      case 'sampler': return [['seed', '898471028164125', 'num'], ['control_after_generate', 'randomize', 'combo'], ['steps', String(act ? Math.max(1, Math.round(ease(clamp(p / .85)) * 30)) : 30), 'num'], ['cfg', '5.0', 'num'], ['sampler_name', 'uni_pc', 'combo'], ['scheduler', 'simple', 'combo'], ['denoise', '1.00', 'num']];
-      case 'audio': return red ? [['speaker', 'classmate.wav', 'combo'], ['style', 'news anchor', 'combo']] : [['prompt', 'gentle guitar music', 'text'], ['duration', '10.0', 'num']];
-      case 'money': return red ? [['count', String(done ? 100 : act ? Math.round(ease(p) * 100) : 1), 'num'], ['ai_label', 'none', 'combo']] : [['credits', '52-PG02 + tools', 'text'], ['ai_disclosure', 'true', 'toggle']];
+      case 'sampler': return [['seed', '898471028164125', 'num'], ['steps', String(act ? Math.max(1, Math.round(ease(clamp(p / .85)) * 30)) : 30), 'num'], ['cfg', '5.0', 'num'], ['sampler_name', 'uni_pc', 'combo'], ['scheduler', 'simple', 'combo']];
+      case 'audio': return red ? [['voice', 'cloned: classmate.wav', 'combo'], ['presenter', 'AI news anchor', 'combo']] : [['music', 'original guitar (MusicGen)', 'text'], ['editor', 'human', 'combo']];
+      case 'money': return red ? [['count', String(done ? 100 : act ? Math.round(ease(p) * 100) : 1), 'num'], ['ai_label', 'none', 'combo']] : [['credits', '52-PG02 + tools', 'text'], ['ai_disclosure', 'true', 'toggle'], ['monetise', 'off for this clip', 'combo']];
       case 'water': return [['label', 'AI-generated', 'text'], ['watermark', 'invisible', 'combo']];
       case 'out': return [['format', 'video/h264-mp4', 'combo'], ['filename_prefix', red ? 'viral_news' : '52-PG02', 'text']];
       default: return [];
@@ -264,7 +289,7 @@ function createScene(api) {
   }
   function drawNode(n, mode, idx, p, ended, now, fall, conn) {
     const { d, g, c } = n, done = ended || idx > d.step, act = !ended && idx === d.step, red = mode === 'red', removed = fall > .5;
-    let key = mode + idx + (ended ? 'e' : '') + (removed ? 'f' : '') + (act ? Math.floor(now / 70) : '') + (ended && n.id === 'audio' ? Math.floor(now / 70) : '') + (frameReady ? 'r' : '') + conn;
+    let key = mode + idx + (ended ? 'e' : '') + (removed ? 'f' : '') + (act && p > .22 ? 'w' : '') + (act ? Math.floor(now / 70) : '') + (ended && n.id === 'audio' ? Math.floor(now / 70) : '') + (frameReady ? 'r' : '') + picsReady + conn;
     if (n.id === 'prompt') key = mode + typed(mode, done ? 1 : act ? p : 0).length + (act ? Math.floor(now / 450) % 2 : '') + conn + idx;
     if (key === n.key || !g || !g.fillText) return; n.key = key;
     const W = d.w, H = d.hh; g.setTransform(TEX, 0, 0, TEX, 0, 0); g.clearRect(0, 0, W, H);
@@ -275,6 +300,8 @@ function createScene(api) {
     g.fillStyle = removed ? '#ff6b6b' : '#8a8a8a'; g.beginPath(); g.arc(13, HEAD / 2, 4.5, 0, Math.PI * 2); g.fill();
     g.font = `600 12.5px ${FONT}`; g.fillStyle = '#e6e6e6'; g.fillText(d.title(mode), 25, HEAD / 2 + 4.4);
     if (act) { g.fillStyle = '#7ff0b0'; g.fillRect(3, HEAD - 2.5, (W - 6) * clamp(p), 2.5); } // executing progress, as ComfyUI shows it
+    // Red: the nodes doing the harm get ComfyUI's red error outline and a warning mark in the title bar
+    if (red && !d.censor && (done || (act && p > .22))) { g.lineWidth = 3; g.strokeStyle = '#ff4d4d'; rr(g, 2.5, 2.5, W - 5, H - 5, 7); g.stroke(); g.font = `800 13px ${FONT}`; g.fillStyle = '#ff6b6b'; g.textAlign = 'end'; g.fillText('⚠', W - 9, HEAD / 2 + 4.6); g.textAlign = 'start'; }
     // input sockets on the left, outputs on the right; filled when linked, hollow when not
     const dot = (x, y, col, on) => { g.beginPath(); g.arc(x, y, 4.6, 0, Math.PI * 2); if (on) { g.fillStyle = col; g.fill(); } else { g.lineWidth = 1.6; g.strokeStyle = col; g.stroke(); } };
     g.font = `500 10.5px ${FONT}`;
@@ -285,7 +312,7 @@ function createScene(api) {
     for (const [label, value, kind] of widgetsOf(n.id, mode, idx, p, ended)) {
       rr(g, 7, y, W - 14, 18, 9); g.fillStyle = '#222'; g.fill();
       g.font = `500 10px ${FONT}`; g.fillStyle = '#9a9a9a'; g.fillText(label, kind === 'num' ? 19 : 15, y + 12.4);
-      g.fillStyle = red && /classmate|viral|none|news anchor/.test(value) ? '#ff9c9c' : '#e2e2e2'; g.textAlign = 'end'; g.fillText(value + (kind === 'combo' ? ' ▾' : ''), W - (kind === 'num' ? 19 : 15), y + 12.4); g.textAlign = 'start';
+      g.fillStyle = red && /classmate|viral|none|news anchor/.test(value) ? '#ff9c9c' : '#e2e2e2'; if (red && n.id === 'money' && label === 'count') g.fillStyle = '#ff9c9c'; g.textAlign = 'end'; g.fillText(value + (kind === 'combo' ? ' ▾' : ''), W - (kind === 'num' ? 19 : 15), y + 12.4); g.textAlign = 'start';
       if (kind === 'num') { g.fillStyle = '#777'; g.fillText('◂', 10, y + 12.4); g.textAlign = 'end'; g.fillText('▸', W - 10, y + 12.4); g.textAlign = 'start'; }
       y += WROW;
     }
@@ -296,25 +323,53 @@ function createScene(api) {
       const end = wrapText(g, s + (act && Math.floor(now / 450) % 2 ? '▍' : ''), cx + 8, cy + 17, cw - 16, 15, w => red && BAD.test(w) ? '#ff8a8a' : '#e6e6e6');
       if (red && s.length > 30) { g.fillStyle = '#ff6b6b'; g.font = `800 10.5px ${FONT}`; g.fillText('⚠ harmful words', cx + 8, Math.min(cy + ch - 7, end + 3)); }
     } else if (n.id === 'face') {
-      const sz = Math.min(cw, ch - 16), show = done ? 1 : act ? clamp(p / .3) : .25; g.save(); g.globalAlpha = show; g.drawImage(face, (W - sz) / 2, cy, sz, sz); g.restore();
-      g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.textAlign = 'center'; g.fillText(red ? '⚠ taken without consent' : 'synthetic, not a real person', W / 2, H - 10); g.textAlign = 'start';
+      // Blue: the armoured figure printed in panel 02. Red: a selfie of a real classmate (a drawn stand-in, never a photo).
+      const show = done ? 1 : act ? clamp(p / .3) : .25, ih = ch - 16;
+      if (red) { g.save(); rr(g, cx, cy, cw, ih, 6); g.clip(); g.fillStyle = '#1c2333'; g.fillRect(cx, cy, cw, ih); g.globalAlpha = show; g.drawImage(face, cx + (cw - ih) / 2, cy, ih, ih); g.restore(); } else drawPic(g, 'armoured', cx, cy, cw, ih, show);
+      g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.textAlign = 'center'; g.fillText(red ? '⚠ a real person · taken without consent' : '✓ fictional character · no real person', W / 2, H - 10); g.textAlign = 'start';
     } else if (d.censor) {
       const msg = removed ? '✕ UNPLUGGED' : red && act && p > .15 ? 'disconnecting…' : mode === 'blue' && act && p < .45 ? 'checking…' : mode === 'blue' && (done || act) ? (n.id === 'safety' ? '✓ stunt removed' : n.id === 'consent' ? '✓ consent given' : '✓ stamped') : 'ready';
       g.font = `800 17px ${FONT}`; g.textAlign = 'center'; g.fillStyle = removed ? '#ff6b6b' : msg.startsWith('✓') ? '#7ff0b0' : '#e6e6e6'; g.fillText(msg, W / 2, cy + ch / 2 + 6); g.textAlign = 'start';
-    } else if (n.id === 'sampler' || n.id === 'out') {
-      const a = n.id === 'sampler' ? (done ? 1 : act ? ease(clamp(p / .85)) : 0) : (done ? 1 : act ? clamp((p - .3) / .4) : 0), foot = n.id === 'out' ? 16 : 0;
-      drawScene(g, cx, cy, cw, ch - foot, Math.max(.04, a), red, red && n.id === 'out' && a > .5);
-      if (red && n.id === 'sampler' && a > .5) { g.fillStyle = 'rgba(0,0,0,.7)'; rr(g, cx + cw - 78, cy + 5, 73, 14, 3); g.fill(); g.fillStyle = '#fff'; g.font = `700 9px ${FONT}`; g.fillText('blurred · fake', cx + cw - 73, cy + 15); }
-      if (n.id === 'out') { g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.fillText(a <= 0 ? 'waiting' : red ? 'no label · no watermark' : 'AI-generated · watermarked', cx, H - 10);
-        if (!red && a > 0) { g.fillStyle = 'rgba(255,255,255,.88)'; g.font = `800 10px ${FONT}`; g.fillText('AI · 52-PG02', cx + 6, cy + 14); } }
+    } else if (n.id === 'sampler') {
+      const a = done ? 1 : act ? ease(clamp(p / .85)) : 0;
+      drawScene(g, cx, cy, cw, ch, Math.max(.04, a), red, false);
+      if (red && a > .5) { g.fillStyle = 'rgba(0,0,0,.7)'; rr(g, cx + cw - 78, cy + 5, 73, 14, 3); g.fill(); g.fillStyle = '#fff'; g.font = `700 9px ${FONT}`; g.fillText('blurred · fake', cx + cw - 73, cy + 15); }
+    } else if (n.id === 'out') {
+      // Blue: the poster's own example of a disclosed release, The Frost [11], with the label and watermark stamped on.
+      // Red: the fake clip (always a mosaic) dressed up as breaking news, with no label.
+      const a = done ? 1 : act ? clamp((p - .3) / .4) : 0, ih = ch - 16;
+      if (red) drawScene(g, cx, cy, cw, ih, Math.max(.04, a), true, a > .5); else { drawPic(g, 'frost', cx, cy, cw, ih, .25 + .75 * a);
+        if (a > 0) { g.fillStyle = 'rgba(16,40,28,.85)'; rr(g, cx + 5, cy + 5, 96, 15, 3); g.fill(); g.fillStyle = '#9fe8b5'; g.font = `800 9.5px ${FONT}`; g.fillText('AI-GENERATED ✓', cx + 10, cy + 16); } }
+      g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.fillText(a <= 0 ? 'waiting' : red ? '⚠ no label · no watermark' : '✓ labelled · credited · watermarked', cx, H - 10);
     } else if (n.id === 'audio') {
-      const on = done || act, y0 = cy + ch / 2, amp = ch * .38; rr(g, cx, cy, cw, ch, 6); g.fillStyle = '#222'; g.fill(); g.strokeStyle = red ? '#ff8a8a' : TYPE.AUDIO; g.lineWidth = 1.6; g.beginPath();
-      for (let i = 0; i <= 120; i++) { const x = cx + 6 + i / 120 * (cw - 12), ph = i / 8 + now / 260, v = on ? (red ? Math.sin(ph) * .5 + Math.sin(ph * 3.7) * .35 + ((Math.sin(i * 12.9898 + now / 90) * 43758.5) % 1) * .4 : Math.sin(ph) * Math.sin(i / 20 + 1) * .9) : 0; i ? g.lineTo(x, y0 - v * amp) : g.moveTo(x, y0 - v * amp); } g.stroke();
+      // Panel 04's picture: the edit in DaVinci Resolve [13]. Blue adds original music under it. Red lays a cloned voice and a fake news banner over it.
+      const on = done || act, ih = ch - 16, u = ih / 100; drawPic(g, 'davinci', cx, cy, cw, ih, on ? 1 : .3);
+      if (on) { g.save(); rr(g, cx, cy, cw, ih, 6); g.clip();
+        if (red) { g.fillStyle = '#e01f2d'; g.fillRect(cx, cy + ih * .62, cw, ih * .22); g.fillStyle = '#fff'; g.font = `800 ${(14 * u).toFixed(1)}px ${FONT}`; g.fillText('BREAKING NEWS', cx + 6 * u, cy + ih * .78);
+          g.fillStyle = '#e01f2d'; rr(g, cx + 4 * u, cy + 5 * u, 34 * u, 15 * u, 3 * u); g.fill(); g.fillStyle = '#fff'; g.font = `800 ${(10 * u).toFixed(1)}px ${FONT}`; g.fillText('● LIVE', cx + 7 * u, cy + 16 * u); }
+        const y0 = cy + ih * .92, amp = ih * .07; g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(cx, cy + ih * .84, cw, ih * .16); g.strokeStyle = red ? '#ff8a8a' : TYPE.AUDIO; g.lineWidth = 1.4; g.beginPath();
+        for (let i = 0; i <= 120; i++) { const x = cx + 4 + i / 120 * (cw - 8), ph = i / 8 + now / 260, v = red ? Math.sin(ph) * .5 + Math.sin(ph * 3.7) * .35 + ((Math.sin(i * 12.9898 + now / 90) * 43758.5) % 1) * .4 : Math.sin(ph) * Math.sin(i / 20 + 1) * .9; i ? g.lineTo(x, y0 - v * amp) : g.moveTo(x, y0 - v * amp); } g.stroke(); g.restore(); }
+      g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.fillText(!on ? 'waiting' : red ? '⚠ cloned voice · fake news format' : '✓ original music · human edit', cx, H - 10);
     } else if (n.id === 'money') {
-      if (red) { const k = done ? 100 : act ? Math.round(ease(p) * 100) : 1; g.fillStyle = '#fff'; g.font = `800 28px ${FONT}`; g.fillText('× ' + k, cx + 4, cy + ch / 2 + 8); g.font = `700 10.5px ${FONT}`; g.fillStyle = '#ff8a8a'; g.fillText('copies to farm views', cx + 4, H - 10); }
-      else { g.font = `700 10.5px ${FONT}`; ['credits: team + tools', 'marked as AI-altered', 'platform rules followed'].forEach((s, i) => { const on = done || (act && p > .15 + i * .25); g.fillStyle = on ? '#9fe8b5' : 'rgba(255,255,255,.35)'; g.fillText((on ? '✓ ' : '○ ') + s, cx + 4, cy + 13 + i * 15); }); }
+      // Panel 05's picture: a company's AI film [17]. Blue credits and discloses one film. Red tiles it into near-identical copies.
+      const on = done || act, ih = ch - 16;
+      if (red) { const k = done ? 100 : act ? Math.round(ease(p) * 100) : 1, cols = k > 40 ? 8 : k > 12 ? 5 : k > 3 ? 3 : k > 1 ? 2 : 1, rows = Math.max(1, Math.round(cols * ih / cw * 2.4)), tw = cw / cols, th = ih / rows;
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { if (r * cols + c >= k) break; drawPic(g, 'toysrus', cx + c * tw + 1, cy + r * th + 1, tw - 2, th - 2, on ? 1 : .3); const t = TINTS[(r * cols + c) % TINTS.length]; if (t) { g.fillStyle = t; g.fillRect(cx + c * tw + 1, cy + r * th + 1, tw - 2, th - 2); } }
+        g.fillStyle = 'rgba(0,0,0,.72)'; rr(g, cx + 5, cy + 5, 62, 24, 4); g.fill(); g.fillStyle = '#fff'; g.font = `800 17px ${FONT}`; g.fillText('× ' + k, cx + 10, cy + 23); }
+      else drawPic(g, 'toysrus', cx, cy, cw, ih, on ? 1 : .3);
+      g.font = `700 10.5px ${FONT}`; g.fillStyle = red ? '#ff8a8a' : '#9fe8b5'; g.fillText(!on ? 'waiting' : red ? '⚠ near-identical copies to farm views' : '✓ one film · credited · disclosed', cx, H - 10);
     }
     n.tex.needsUpdate = true;
+  }
+  // A ComfyUI note node in the red or green node colour: the one-line reason this step is harmful, or fine.
+  function drawNote(n, mode) {
+    if (n.key === mode || !n.g || !n.g.fillText) return; n.key = mode; const g = n.g, W = n.w, H = n.hh, red = mode === 'red', [body, title] = PAL[red ? 'red' : 'green'];
+    g.setTransform(TEX, 0, 0, TEX, 0, 0); g.clearRect(0, 0, W, H); rr(g, 1, 1, W - 2, H - 2, 8); g.fillStyle = body; g.fill();
+    g.save(); rr(g, 1, 1, W - 2, H - 2, 8); g.clip(); g.fillStyle = title; g.fillRect(0, 0, W, HEAD); g.restore();
+    g.fillStyle = red ? '#ff6b6b' : '#7ff0b0'; g.beginPath(); g.arc(13, HEAD / 2, 4.5, 0, Math.PI * 2); g.fill();
+    g.font = `700 12.5px ${FONT}`; g.fillStyle = red ? '#ffb3b3' : '#b8f5cf'; g.textAlign = 'start'; g.fillText(red ? '⚠ Why this is harmful' : '✓ Why this is fine', 25, HEAD / 2 + 4.4);
+    rr(g, 7, HEAD + 6, W - 14, H - HEAD - 13, 6); g.fillStyle = '#1c1c1c'; g.fill();
+    g.font = `600 14px ${FONT}`; wrapText(g, WHY[n.i][mode], 16, HEAD + 26, W - 32, 18, () => '#f2f2f2'); n.tex.needsUpdate = true;
   }
   function update(si, p, now) {
     if (!R || disposed) return;
@@ -339,6 +394,9 @@ function createScene(api) {
       const z = n.grp.position.z; n.sh.position.copy(P(d.x + ff * 90 * side + z * .1, d.y + ff * 120 + z * .14, .5)); n.shMat.opacity = fut ? .2 : .5 * clamp(1 - z / 900) + .15;
       n.stem.visible = fall === 0; n.stemMat.opacity = fut ? .15 : .35;
     }
+    // the step's note appears once its action is under way, and stays for the steps already done
+    for (const n of R.notes) { const a = ended || idx > n.i ? 1 : idx === n.i ? clamp((p - .22) / .18) : 0; n.grp.visible = a > 0; if (!a) continue;
+      drawNote(n, mode); n.front.opacity = a; n.side.opacity = a * .95; n.edgeMat.color.set(COLOR[mode]); n.edgeMat.opacity = a; n.grp.scale.setScalar(reduce ? 1 : .9 + .1 * ease(a)); }
     // links: type-coloured as in ComfyUI; the step's links carry pulses; red bypass links replace fallen modules
     const flows = new Set(FLOW[idx]);
     for (const w of R.wires) { const cut = cutOf(w), on = flows.has(w.key) && !cut && !ended;
